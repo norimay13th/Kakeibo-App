@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1D9E75">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="家計簿">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="manifest" href="manifest.json">
+<title>家計簿</title>
+<style>
+  :root {
+    --accent: #1D9E75;
+    --accent-dark: #0F6E56;
+    --bg: #F7F7F5;
+    --card: #FFFFFF;
+    --text: #222222;
+    --text-muted: #767670;
+    --danger: #C0392B;
+    --border: #E3E2DC;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  header {
+    padding: 20px 20px 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  header h1 { font-size: 20px; margin: 0; }
+  #auth-status {
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  #auth-status button {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 12px;
+    color: var(--text);
+  }
+  main { padding: 12px 20px 40px; max-width: 480px; margin: 0 auto; }
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  .big-buttons { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+  .big-btn {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 20px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    font-size: 17px;
+    text-align: left;
+    color: var(--text);
+  }
+  .big-btn .icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: var(--accent);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+
+  h2 { font-size: 15px; color: var(--text-muted); margin: 24px 0 8px; font-weight: 500; }
+  .recent-list { display: flex; flex-direction: column; gap: 8px; }
+  .recent-item {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 14px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+  }
+  .recent-item .amount { font-weight: 600; }
+  .recent-empty { color: var(--text-muted); font-size: 13px; padding: 8px 2px; }
+
+  form { display: flex; flex-direction: column; gap: 14px; margin-top: 8px; }
+  label { font-size: 13px; color: var(--text-muted); display: block; margin-bottom: 4px; }
+  input, select {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 16px;
+    background: var(--card);
+    color: var(--text);
+  }
+  .type-toggle { display: flex; gap: 8px; }
+  .type-toggle button {
+    flex: 1;
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    font-size: 15px;
+  }
+  .type-toggle button.selected {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+  .actions { display: flex; gap: 10px; margin-top: 8px; }
+  .btn {
+    flex: 1;
+    padding: 14px;
+    border-radius: 10px;
+    border: none;
+    font-size: 16px;
+  }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-secondary { background: var(--card); color: var(--text); border: 1px solid var(--border); }
+  .btn:disabled { opacity: 0.5; }
+
+  #ocr-indicator {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+  #ocr-indicator.active { display: flex; }
+  .spinner {
+    width: 14px; height: 14px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  #toast {
+    position: fixed;
+    left: 50%;
+    bottom: 24px;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--text);
+    color: white;
+    padding: 12px 18px;
+    border-radius: 10px;
+    font-size: 14px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s, transform 0.2s;
+    max-width: 90%;
+    text-align: center;
+    z-index: 10;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #toast.error { background: var(--danger); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>家計簿</h1>
+  <div id="auth-status">
+    <button id="signin-btn" type="button">サインイン</button>
+  </div>
+</header>
+
+<main>
+
+  <section id="screen-home" class="screen active">
+    <div class="big-buttons">
+      <button class="big-btn" id="btn-camera" type="button">
+        <span class="icon">📷</span>
+        <span>レシートを撮影して記録</span>
+      </button>
+      <button class="big-btn" id="btn-manual" type="button">
+        <span class="icon">＋</span>
+        <span>手入力で記録</span>
+      </button>
+    </div>
+
+    <h2>最近の記録</h2>
+    <div class="recent-list" id="recent-list">
+      <div class="recent-empty">まだ記録がありません</div>
+    </div>
+  </section>
+
+  <section id="screen-form" class="screen">
+    <div id="ocr-indicator"><span class="spinner"></span><span>レシートを解析しています…</span></div>
+    <form id="entry-form">
+      <div>
+        <label>収支</label>
+        <div class="type-toggle" id="type-toggle">
+          <button type="button" data-type="支出" class="selected">支出</button>
+          <button type="button" data-type="収入">収入</button>
+        </div>
+      </div>
+      <div>
+        <label for="field-category">カテゴリ</label>
+        <select id="field-category"></select>
+      </div>
+      <div>
+        <label for="field-name">内容・店名</label>
+        <input type="text" id="field-name" placeholder="例: スギ薬局">
+      </div>
+      <div>
+        <label for="field-amount">金額</label>
+        <input type="number" id="field-amount" inputmode="numeric" placeholder="0">
+      </div>
+      <div>
+        <label for="field-date">日付</label>
+        <input type="date" id="field-date">
+      </div>
+      <div>
+        <label for="field-memo">メモ（任意）</label>
+        <input type="text" id="field-memo" placeholder="任意">
+      </div>
+      <div class="actions">
+        <button type="button" class="btn btn-secondary" id="btn-cancel">戻る</button>
+        <button type="submit" class="btn btn-primary" id="btn-save">保存</button>
+      </div>
+    </form>
+  </section>
+
+</main>
+
+<div id="toast"></div>
+
+<input type="file" id="camera-input" accept="image/*" capture="environment" style="display:none">
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="config.js"></script>
+<script src="sheets.js"></script>
+<script src="ocr.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
