@@ -159,30 +159,28 @@
 
   function renderAllocationChart(year) {
     const allocation = Aggregate.assetAllocationAsOf(dataset.assets, `${year}年12月`);
+    const labels = ["現金", "株式"];
+    const values = [allocation.cash, allocation.stock];
+    const formatter = (value, ctx, total) => {
+      const label = labels[ctx.dataIndex];
+      const pct = total ? Math.round((value / total) * 100) : 0;
+      return [label, `¥${Math.round(value).toLocaleString()} (${pct}%)`];
+    };
+
     destroyChart("allocation");
-    charts.allocation = new Chart(el("chart-allocation"), {
+    const canvas = el("chart-allocation");
+    const leaderLabels = { textColor: textColor(), lineColor: separatorColor(), minShare: 0, formatter };
+    charts.allocation = new Chart(canvas, {
       type: "doughnut",
-      data: {
-        labels: ["現金", "株式"],
-        datasets: [{ data: [allocation.cash, allocation.stock] }],
-      },
+      data: { labels, datasets: [{ data: values }] },
       plugins: [LeaderLabels],
       options: {
         maintainAspectRatio: false,
-        radius: "26%",
+        radius: computeDonutRadius(canvas.parentElement, values, formatter, leaderLabels),
         plugins: {
           legend: { display: false },
           tooltip: { enabled: false },
-          leaderLabels: {
-            textColor: textColor(),
-            lineColor: separatorColor(),
-            minShare: 0,
-            formatter: (value, ctx, total) => {
-              const label = ctx.chart.data.labels[ctx.dataIndex];
-              const pct = total ? Math.round((value / total) * 100) : 0;
-              return [label, `¥${Math.round(value).toLocaleString()} (${pct}%)`];
-            },
-          },
+          leaderLabels,
         },
       },
     });

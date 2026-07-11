@@ -159,13 +159,12 @@ assertEqual(
   "monthlyExpenseBreakdown adds 固定費 and 借金・ローン返済 to the 6 categories"
 );
 
-// --- aggregate: monthlyCategoryTotals (9-row category comparison table) ---
+// --- aggregate: monthlyCategoryTotals (8-row category comparison table) ---
 assertEqual(
   Aggregate.monthlyCategoryTotals(dataset, "2026年7月"),
   [
     { label: "固定費", amount: 100632 },
-    { label: "ローン引き落とし額", amount: 21949 },
-    { label: "借金返済額", amount: 17000 },
+    { label: "負債返済額", amount: 38949 },
     { label: "食費", amount: 5620 },
     { label: "雑費", amount: 2320 },
     { label: "生活費", amount: 5710 },
@@ -173,7 +172,7 @@ assertEqual(
     { label: "自己投資", amount: 0 },
     { label: "医療費", amount: 4920 },
   ],
-  "monthlyCategoryTotals returns the fixed 9-row breakdown in order"
+  "monthlyCategoryTotals returns the fixed 8-row breakdown, ローン+借金 merged into 負債返済額"
 );
 
 // --- aggregate: incomeItems ---
@@ -216,20 +215,54 @@ assertEqual(
     loans: {
       month: "2026年7月",
       items: [
-        { name: "Mac Book Pro M2PRO 32GB 1TB", payment: 12321 },
-        { name: "LUMIX-S5IIX 契約日2024/3/25日", payment: 5500 },
-        { name: "iPhone15 36回分割 (28回目)", payment: 4128 },
+        { name: "Mac Book Pro M2PRO 32GB 1TB", payment: 12321, balance: 160181 },
+        { name: "LUMIX-S5IIX 契約日2024/3/25日", payment: 5500, balance: 187000 },
+        { name: "iPhone15 36回分割 (28回目)", payment: 4128, balance: 37144 },
       ],
     },
     debts: {
       month: "2026年7月",
       items: [
-        { name: "アコム", payment: 14000 },
-        { name: "レイク", payment: 3000 },
+        { name: "アコム", payment: 14000, balance: 452629 },
+        { name: "レイク", payment: 3000, balance: 94488 },
       ],
     },
   },
-  "liabilityItemsAsOf lists itemized ローン/借金 entries, payment descending"
+  "liabilityItemsAsOf lists itemized ローン/借金 entries with balance, payment descending"
+);
+
+// --- aggregate: dayNumber / kakeiboTotalAsOfDay / spendingPaceInsight ---
+assertEqual(Aggregate.dayNumber("3日"), 3, "dayNumber parses a day label");
+assertEqual(Aggregate.dayNumber(""), null, "dayNumber returns null for an empty label");
+
+assertEqual(
+  Aggregate.kakeiboTotalAsOfDay(kakeibo, "2026年7月", 2),
+  14009,
+  "kakeiboTotalAsOfDay sums only entries on or before the given day"
+);
+assertEqual(
+  Aggregate.kakeiboTotalAsOfDay(kakeibo, "2026年7月", null),
+  31170,
+  "kakeiboTotalAsOfDay with maxDay=null sums the whole month (matches monthlySavings.expenseTotal)"
+);
+
+assertEqual(Aggregate.spendingPaceInsight(kakeibo, "2026年7月", null), null, "spendingPaceInsight is null with no previous month");
+assertEqual(
+  Aggregate.spendingPaceInsight(kakeibo, "2026年7月", "2026年6月", new Date("2026-08-01")),
+  { month: "2026年7月", prevMonth: "2026年6月", asOfDay: null, current: 31170, previous: 0, diff: 31170 },
+  "spendingPaceInsight compares full months when the viewed month is already in the past"
+);
+assertEqual(
+  Aggregate.spendingPaceInsight(kakeibo, "2026年7月", "2026年6月", new Date("2026-07-02")),
+  {
+    month: "2026年7月",
+    prevMonth: "2026年6月",
+    asOfDay: 2,
+    current: 14009,
+    previous: 0,
+    diff: 14009,
+  },
+  "spendingPaceInsight caps both months at today's day-of-month when viewing the real current month"
 );
 
 // --- aggregate: previousMonth ---

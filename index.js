@@ -115,9 +115,36 @@
     setStat("stat-liabilities", netWorth.liabilitiesTotal);
 
     renderWarnings(month);
+    renderPaceInsight(month);
     renderCategoryChart(month);
     renderCategoryCompareTable(month);
     renderCompareTable(month, savings, netWorth);
+  }
+
+  function renderPaceInsight(month) {
+    const banner = el("pace-insight");
+    const months = Aggregate.distinctMonths(dataset.kakeibo);
+    const prevMonth = Aggregate.previousMonth(months, month);
+    const insight = Aggregate.spendingPaceInsight(dataset.kakeibo, month, prevMonth);
+    if (!insight) {
+      banner.classList.remove("active");
+      banner.textContent = "";
+      return;
+    }
+
+    const { diff, asOfDay } = insight;
+    const prevShort = insight.prevMonth.replace(/^\d+年/, "");
+    const dayLabel = asOfDay != null ? `${prevShort}${asOfDay}日` : prevShort;
+    let sentence;
+    if (diff === 0) {
+      sentence = `${dayLabel}時点と比べて支出は横ばいです。`;
+    } else if (diff < 0) {
+      sentence = `${dayLabel}時点と比べて支出が${yen(Math.abs(diff))}少なく、順調なペースです。`;
+    } else {
+      sentence = `${dayLabel}時点と比べて支出が${yen(diff)}多く、ペースが早めです。`;
+    }
+    banner.textContent = sentence;
+    banner.classList.add("active");
   }
 
   function renderWarnings(month) {
@@ -157,29 +184,28 @@
   function renderCategoryChart(month) {
     const breakdown = Aggregate.monthlyExpenseBreakdown(dataset, month);
     const entries = Object.entries(breakdown).filter(([, value]) => value > 0);
+    const labels = entries.map(([label]) => label);
+    const values = entries.map(([, value]) => value);
+    const formatter = (value, ctx, total) => {
+      const label = labels[ctx.dataIndex];
+      const pct = Math.round((value / total) * 100);
+      return [label, `¥${Math.round(value).toLocaleString()} (${pct}%)`];
+    };
+
     destroyChart("category");
-    charts.category = new Chart(el("chart-category"), {
+    const canvas = el("chart-category");
+    const leaderLabels = { textColor: textColor(), lineColor: separatorColor(), formatter };
+    charts.category = new Chart(canvas, {
       type: "doughnut",
-      data: {
-        labels: entries.map(([label]) => label),
-        datasets: [{ data: entries.map(([, value]) => value) }],
-      },
+      data: { labels, datasets: [{ data: values }] },
       plugins: [LeaderLabels],
       options: {
         maintainAspectRatio: false,
-        radius: "26%",
+        radius: computeDonutRadius(canvas.parentElement, values, formatter, leaderLabels),
         plugins: {
           legend: { display: false },
           tooltip: { enabled: false },
-          leaderLabels: {
-            textColor: textColor(),
-            lineColor: separatorColor(),
-            formatter: (value, ctx, total) => {
-              const label = ctx.chart.data.labels[ctx.dataIndex];
-              const pct = Math.round((value / total) * 100);
-              return [label, `¥${Math.round(value).toLocaleString()} (${pct}%)`];
-            },
-          },
+          leaderLabels,
         },
       },
     });
@@ -259,6 +285,27 @@
     return rows.reduce((t, r) => t + r.amount, 0);
   }
 
+  // ローン/借金 items with both the payment amount and outstanding balance.
+  function renderLiabilityTable(heading, amountLabel, balanceLabel, items) {
+    const heading_ = heading ? `<h3>${heading}</h3>` : "";
+    if (!items.length) {
+      return `<div class="modal-section">${heading_}<table class="detail-table"><tbody><tr><td colspan="3">データがありません</td></tr></tbody></table></div>`;
+    }
+    const body = items
+      .map((i) => `<tr><td>${i.name}</td><td>${yen(i.payment)}</td><td>${yen(i.balance)}</td></tr>`)
+      .join("");
+    const paymentTotal = items.reduce((t, i) => t + i.payment, 0);
+    const balanceTotal = items.reduce((t, i) => t + i.balance, 0);
+    const totalRow = `<tr class="total"><td>合計</td><td>${yen(paymentTotal)}</td><td>${yen(balanceTotal)}</td></tr>`;
+    return `<div class="modal-section">${heading_}<table class="detail-table"><thead><tr><th>項目</th><th>${amountLabel}</th><th>${balanceLabel}</th></tr></thead><tbody>${body}${totalRow}</tbody></table></div>`;
+  }
+
+  function renderLiabilityGrandTotal(loanItems, debtItems) {
+    const paymentTotal = [...loanItems, ...debtItems].reduce((t, i) => t + i.payment, 0);
+    const balanceTotal = [...loanItems, ...debtItems].reduce((t, i) => t + i.balance, 0);
+    return `<div class="modal-section"><table class="detail-table"><thead><tr><th>合計</th><th>引き落とし・返済額</th><th>残高</th></tr></thead><tbody><tr class="total"><td></td><td>${yen(paymentTotal)}</td><td>${yen(balanceTotal)}</td></tr></tbody></table></div>`;
+  }
+
   function openDetailModal(kind) {
     const month = monthSelect.value;
     if (!month || !dataset) return;
@@ -284,14 +331,10 @@
     } else if (kind === "liabilities") {
       title = "負債額の内訳";
       const { loans, debts } = Aggregate.liabilityItemsAsOf(dataset.loans, dataset.debts, month);
-      const loanRows = loans.items.map((i) => ({ name: i.name, amount: i.payment }));
-      const debtRows = debts.items.map((i) => ({ name: i.name, amount: i.payment }));
-      // Note: this totals monthly payments (引き落とし/返済額), not the outstanding
-      // balance the 負債額 stat card shows — the two figures intentionally differ.
       bodyHtml =
-        renderSection("ローン（引き落とし）", loanRows, sumAmounts(loanRows)) +
-        renderSection("借金（返済額）", debtRows, sumAmounts(debtRows)) +
-        renderGrandTotal(sumAmounts(loanRows) + sumAmounts(debtRows), "今月の引き落とし・返済額 合計");
+        renderLiabilityTable("ローン", "引き落とし", "残高", loans.items) +
+        renderLiabilityTable("借金", "返済額", "残債務", debts.items) +
+        renderLiabilityGrandTotal(loans.items, debts.items);
     } else {
       return;
     }

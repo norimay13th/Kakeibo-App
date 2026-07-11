@@ -74,8 +74,7 @@
 
   const EXPENSE_CATEGORY_ORDER = [
     "固定費",
-    "ローン引き落とし額",
-    "借金返済額",
+    "負債返済額",
     "食費",
     "雑費",
     "生活費",
@@ -84,14 +83,13 @@
     "医療費",
   ];
 
-  // Fixed 9-row breakdown (固定費/ローン/借金 + the 6 家計簿 categories) for the
-  // category comparison table and its matching drill-down modal.
+  // Fixed 8-row breakdown (固定費/負債返済額(ローン+借金合算) + the 6 家計簿 categories)
+  // for the category comparison table and its matching drill-down modal.
   function monthlyCategoryTotals({ kakeibo, fixedCosts, loans, debts }, month) {
     const byCategory = monthlyExpenseByCategory(kakeibo, month);
     const values = {
       固定費: sumBy(fixedCosts, month, "amount"),
-      ローン引き落とし額: sumBy(loans, month, "payment"),
-      借金返済額: sumBy(debts, month, "payment"),
+      負債返済額: sumBy(loans, month, "payment") + sumBy(debts, month, "payment"),
       ...byCategory,
     };
     return EXPENSE_CATEGORY_ORDER.map((label) => ({ label, amount: values[label] || 0 }));
@@ -118,17 +116,47 @@
     return { month: carried.month, cash: byType("現金"), stock: byType("株式") };
   }
 
-  // Itemized ローン/借金 entries as of `month`. Each sheet's carry-forward month is
-  // resolved independently, matching how netWorthAsOf totals them.
+  // Itemized ローン/借金 entries as of `month`, including outstanding balance
+  // alongside the payment amount. Each sheet's carry-forward month is resolved
+  // independently, matching how netWorthAsOf totals them.
   function liabilityItemsAsOf(loans, debts, month) {
     const itemsAsOf = (entries) => {
       const carried = carryForwardSum(entries, month, "payment");
       const items = (carried.month ? entries.filter((e) => e.month === carried.month) : [])
-        .map((e) => ({ name: e.name, payment: e.payment }))
+        .map((e) => ({ name: e.name, payment: e.payment, balance: e.balance }))
         .sort((a, b) => b.payment - a.payment);
       return { month: carried.month, items };
     };
     return { loans: itemsAsOf(loans), debts: itemsAsOf(debts) };
+  }
+
+  // "3日" -> 3.
+  function dayNumber(dayLabel) {
+    const m = /^(\d{1,2})日$/.exec(dayLabel || "");
+    return m ? Number(m[1]) : null;
+  }
+
+  // Variable (家計簿) spending total for `month`, optionally limited to entries
+  // recorded on or before `maxDay` (day-of-month). maxDay=null means the whole month.
+  function kakeiboTotalAsOfDay(kakeiboEntries, month, maxDay) {
+    return kakeiboEntries
+      .filter((e) => e.month === month && (maxDay == null || dayNumber(e.day) <= maxDay))
+      .reduce((total, e) => total + e.amount, 0);
+  }
+
+  // Compares this month's variable spending against the same point last month, for the
+  // "カテゴリー別支出" pace comment. Only 家計簿 entries carry a day, so the comparison
+  // is scoped to that (固定費/ローン/借金/収入 are monthly lump sums with no day to limit by).
+  // When `month` is the real current calendar month, both totals are capped at today's
+  // day-of-month for a fair apples-to-apples comparison; a fully past month compares in full.
+  function spendingPaceInsight(kakeiboEntries, month, prevMonth, today) {
+    if (!prevMonth) return null;
+    const now = today || new Date();
+    const isCurrentRealMonth = monthKey(month) === now.getFullYear() * 100 + (now.getMonth() + 1);
+    const asOfDay = isCurrentRealMonth ? now.getDate() : null;
+    const current = kakeiboTotalAsOfDay(kakeiboEntries, month, asOfDay);
+    const previous = kakeiboTotalAsOfDay(kakeiboEntries, prevMonth, asOfDay);
+    return { month, prevMonth, asOfDay, current, previous, diff: current - previous };
   }
 
   function monthlySavings({ income, kakeibo, fixedCosts, loans, debts }, month) {
@@ -205,6 +233,9 @@
     incomeItems,
     assetItemsAsOf,
     liabilityItemsAsOf,
+    dayNumber,
+    kakeiboTotalAsOfDay,
+    spendingPaceInsight,
     monthlySavings,
     netWorthAsOf,
     assetAllocationAsOf,

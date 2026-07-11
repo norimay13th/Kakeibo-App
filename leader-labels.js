@@ -40,7 +40,6 @@ const LeaderLabels = {
       .filter(Boolean);
 
     ctx.save();
-    ctx.font = `${opts.fontWeight || 600} ${opts.fontSize || 12}px ${opts.fontFamily || "-apple-system, sans-serif"}`;
 
     ["left", "right"].forEach((side) => {
       const sideItems = items.filter((it) => it.side === side).sort((a, b) => a.arcPoint.y - b.arcPoint.y);
@@ -81,7 +80,7 @@ const LeaderLabels = {
         const lineGap = (opts.fontSize || 12) + 2;
         const blockTop = labelY - ((lines.length - 1) * lineGap) / 2;
         lines.forEach((line, li) => {
-          ctx.font = `${li === 0 ? opts.fontWeight || 600 : 400} ${opts.fontSize || 12}px ${opts.fontFamily || "-apple-system, sans-serif"}`;
+          setFont(ctx, opts, li === 0);
           ctx.fillText(line, labelX, blockTop + li * lineGap);
         });
       });
@@ -90,3 +89,42 @@ const LeaderLabels = {
     ctx.restore();
   },
 };
+
+function setFont(ctx, opts, isFirstLine) {
+  const weight = isFirstLine ? opts.fontWeight || 600 : 400;
+  ctx.font = `${weight} ${opts.fontSize || 12}px ${opts.fontFamily || "-apple-system, sans-serif"}`;
+}
+
+// Computes the largest donut radius (as a Chart.js `radius` percentage string) that still
+// leaves room for every label at its actual measured width — call this with the chart's
+// container element *before* constructing the Chart, and pass the result as `options.radius`.
+// (Setting `chart.options.radius` reactively from inside a plugin hook doesn't reliably
+// feed back into the doughnut controller's own geometry calculation, so this has to run
+// up front instead.)
+function computeDonutRadius(container, values, formatter, opts = {}) {
+  const rect = container.getBoundingClientRect();
+  const width = rect.width || container.clientWidth;
+  const height = rect.height || container.clientHeight;
+  const half = Math.min(width, height) / 2;
+  if (!half) return "50%";
+
+  const total = values.reduce((sum, v) => sum + (v || 0), 0);
+  const minShare = opts.minShare ?? 0.02;
+  const ctx = document.createElement("canvas").getContext("2d");
+  let maxTextWidth = 0;
+  values.forEach((value, index) => {
+    if (!total || !value || value / total < minShare) return;
+    const lines = formatter(value, { dataIndex: index }, total);
+    lines.forEach((line, li) => {
+      setFont(ctx, opts, li === 0);
+      maxTextWidth = Math.max(maxTextWidth, ctx.measureText(line).width);
+    });
+  });
+
+  const labelMargin = opts.labelMargin ?? 6;
+  const elbowInset = opts.elbowInset ?? 26;
+  const reserved = maxTextWidth + elbowInset + labelMargin + 8;
+  const minRadiusPx = opts.minRadius ?? 32;
+  const radiusPx = Math.max(minRadiusPx, half - reserved);
+  return `${((radiusPx / half) * 100).toFixed(1)}%`;
+}
