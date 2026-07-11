@@ -171,6 +171,35 @@ select.picker {
 .chart-wrap canvas { max-height: 100%; }
 .chart-wrap--donut { height: 480px; }
 
+.legend-list {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+}
+.legend-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-top: 1px solid var(--separator);
+  font-size: 13px;
+}
+.legend-list li:first-child { border-top: none; }
+.legend-list .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+.legend-list .name { flex: 1; color: var(--text-secondary); }
+.legend-list .amount { font-variant-numeric: tabular-nums; }
+.legend-list .pct {
+  color: var(--text-secondary);
+  width: 40px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
 table.compare {
   width: 100%;
   border-collapse: collapse;

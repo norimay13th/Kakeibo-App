@@ -86,6 +86,19 @@ const LeaderLabels = {
       });
     });
 
+    if (opts.centerValue) {
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      if (opts.centerLabel) {
+        ctx.fillStyle = opts.centerLabelColor || opts.lineColor || "#999";
+        ctx.font = `500 ${opts.centerLabelFontSize || 12}px ${opts.fontFamily || "-apple-system, sans-serif"}`;
+        ctx.fillText(opts.centerLabel, cx, cy - 12);
+      }
+      ctx.fillStyle = opts.centerValueColor || opts.textColor || "#000";
+      ctx.font = `700 ${opts.centerValueFontSize || 18}px ${opts.fontFamily || "-apple-system, sans-serif"}`;
+      ctx.fillText(opts.centerValue, cx, opts.centerLabel ? cy + 10 : cy);
+    }
+
     ctx.restore();
   },
 };

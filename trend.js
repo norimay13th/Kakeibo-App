@@ -169,13 +169,22 @@
 
     destroyChart("allocation");
     const canvas = el("chart-allocation");
-    const leaderLabels = { textColor: textColor(), lineColor: separatorColor(), minShare: 0, formatter };
+    const total = values.reduce((t, v) => t + v, 0);
+    const leaderLabels = {
+      textColor: textColor(),
+      lineColor: separatorColor(),
+      minShare: 0,
+      formatter,
+      centerLabel: "総資産",
+      centerValue: yen(total),
+    };
     charts.allocation = new Chart(canvas, {
       type: "doughnut",
       data: { labels, datasets: [{ data: values }] },
       plugins: [LeaderLabels],
       options: {
         maintainAspectRatio: false,
+        cutout: "65%",
         radius: computeDonutRadius(canvas.parentElement, values, formatter, leaderLabels),
         plugins: {
           legend: { display: false },

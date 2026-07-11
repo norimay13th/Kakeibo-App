@@ -181,34 +181,50 @@
     return getComputedStyle(document.documentElement).getPropertyValue("--text-tertiary").trim() || "#999";
   }
 
+  // Fixed palette so each category keeps the same color across the donut slices and the
+  // legend list below it (Chart.js's own auto-assigned colors aren't known until after
+  // the chart renders, which is too late to also color the legend markers up front).
+  const CATEGORY_COLORS = ["#007AFF", "#FF3B30", "#FF9500", "#FFCC00", "#34C759", "#5AC8FA", "#AF52DE", "#8E8E93"];
+
   function renderCategoryChart(month) {
     const breakdown = Aggregate.monthlyExpenseBreakdown(dataset, month);
     const entries = Object.entries(breakdown).filter(([, value]) => value > 0);
     const labels = entries.map(([label]) => label);
     const values = entries.map(([, value]) => value);
-    const formatter = (value, ctx, total) => {
-      const label = labels[ctx.dataIndex];
-      const pct = Math.round((value / total) * 100);
-      return [label, `¥${Math.round(value).toLocaleString()} (${pct}%)`];
-    };
+    const colors = labels.map((_, i) => CATEGORY_COLORS[i % CATEGORY_COLORS.length]);
+    const total = values.reduce((t, v) => t + v, 0);
 
     destroyChart("category");
-    const canvas = el("chart-category");
-    const leaderLabels = { textColor: textColor(), lineColor: separatorColor(), formatter };
-    charts.category = new Chart(canvas, {
+    charts.category = new Chart(el("chart-category"), {
       type: "doughnut",
-      data: { labels, datasets: [{ data: values }] },
-      plugins: [LeaderLabels],
+      data: { labels, datasets: [{ data: values, backgroundColor: colors }] },
       options: {
         maintainAspectRatio: false,
-        radius: computeDonutRadius(canvas.parentElement, values, formatter, leaderLabels),
         plugins: {
           legend: { display: false },
-          tooltip: { enabled: false },
-          leaderLabels,
+          tooltip: {
+            callbacks: {
+              label: (ctx) => {
+                const pct = Math.round((ctx.parsed / total) * 100);
+                return ` ${ctx.label}: ${yen(ctx.parsed)} (${pct}%)`;
+              },
+            },
+          },
         },
       },
     });
+
+    renderCategoryLegend(labels, values, colors, total);
+  }
+
+  function renderCategoryLegend(labels, values, colors, total) {
+    const legend = el("category-legend");
+    legend.innerHTML = labels
+      .map((label, i) => {
+        const pct = Math.round((values[i] / total) * 100);
+        return `<li><span class="dot" style="background:${colors[i]}"></span><span class="name">${label}</span><span class="amount">${yen(values[i])}</span><span class="pct">${pct}%</span></li>`;
+      })
+      .join("");
   }
 
   function renderCategoryCompareTable(month) {
