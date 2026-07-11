@@ -10,7 +10,7 @@
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="manifest" href="manifest.json">
 <link rel="stylesheet" href="style.css">
-<title>家計簿</title>
+<title>資産推移</title>
 <style>
   header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
   #signin-btn {
@@ -27,60 +27,49 @@
 
 <header>
   <div style="flex:1">
-    <h1>支出</h1>
+    <h1>資産推移</h1>
     <nav class="segmented">
-      <a href="index.html" class="active">支出</a>
-      <a href="trend.html">資産推移</a>
+      <a href="index.html">支出</a>
+      <a href="trend.html" class="active">資産推移</a>
     </nav>
   </div>
   <button id="signin-btn" type="button">サインイン</button>
 </header>
 
 <main>
-  <select id="month-select" class="picker"></select>
+  <select id="year-select" class="picker"></select>
 
   <div id="warning-banner"></div>
 
-  <div class="stat-grid">
-    <div class="stat-card">
-      <div class="label">今月の収入</div>
-      <div class="value" id="stat-income">—</div>
-    </div>
-    <div class="stat-card">
-      <div class="label">今月の支出</div>
-      <div class="value" id="stat-expense">—</div>
-    </div>
-    <div class="stat-card">
-      <div class="label">今月の貯金額</div>
-      <div class="value" id="stat-savings">—</div>
-    </div>
-    <div class="stat-card">
-      <div class="label">今月の純資産額</div>
-      <div class="value" id="stat-networth">—</div>
-    </div>
-    <div class="stat-card">
-      <div class="label">今月の資産額</div>
-      <div class="value" id="stat-assets">—</div>
-    </div>
-    <div class="stat-card">
-      <div class="label">借金+ローン額</div>
-      <div class="value" id="stat-liabilities">—</div>
-    </div>
+  <div class="hero-card">
+    <div class="label">純資産額</div>
+    <div class="value" id="hero-networth">—</div>
   </div>
 
   <div class="chart-card">
-    <h2>カテゴリー別支出</h2>
-    <canvas id="chart-category"></canvas>
+    <h2>収入金額</h2>
+    <canvas id="chart-income"></canvas>
+  </div>
+  <div class="chart-card">
+    <h2>支出金額</h2>
+    <canvas id="chart-expense"></canvas>
+  </div>
+  <div class="chart-card">
+    <h2>貯金額</h2>
+    <canvas id="chart-savings"></canvas>
+  </div>
+  <div class="chart-card">
+    <h2>借金+ローン額</h2>
+    <canvas id="chart-liabilities"></canvas>
+  </div>
+  <div class="chart-card">
+    <h2>資産額</h2>
+    <canvas id="chart-assets"></canvas>
   </div>
 
   <div class="chart-card">
-    <h2>先月比較</h2>
-    <table class="compare" id="compare-table">
-      <thead>
-        <tr><th>項目</th><th>今月</th><th>先月</th><th>差額</th></tr>
-      </thead>
-      <tbody></tbody>
-    </table>
+    <h2>保有資産割合</h2>
+    <canvas id="chart-allocation"></canvas>
   </div>
 </main>
 
@@ -90,6 +79,6 @@
 <script src="sheets.js"></script>
 <script src="parser.js"></script>
 <script src="aggregate.js"></script>
-<script src="index.js"></script>
+<script src="trend.js"></script>
 </body>
 </html>

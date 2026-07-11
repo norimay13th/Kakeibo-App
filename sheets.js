@@ -1,6 +1,6 @@
-// Google sign-in (GIS token client) + Sheets API append, all client-side, no server involved.
+// Google sign-in (GIS token client) + read-only Sheets API access, all client-side, no server involved.
 const SheetsClient = (() => {
-  const SCOPE = "https://www.googleapis.com/auth/spreadsheets";
+  const SCOPE = "https://www.googleapis.com/auth/spreadsheets.readonly";
 
   let tokenClient = null;
   let accessToken = null;
@@ -66,41 +66,6 @@ const SheetsClient = (() => {
     return signIn(true);
   }
 
-  async function appendRow(row) {
-    const token = await ensureSignedIn();
-    const range = encodeURIComponent(`${CONFIG.SHEET_NAME}!A:H`);
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SPREADSHEET_ID}/values/${range}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
-
-    let res = await fetch(url, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ values: [row] }),
-    });
-
-    if (res.status === 401) {
-      // Token expired between check and request; force a fresh one and retry once.
-      accessToken = null;
-      const freshToken = await ensureSignedIn();
-      res = await fetch(url, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${freshToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ values: [row] }),
-      });
-    }
-
-    if (!res.ok) {
-      const body = await res.text();
-      throw new Error(`スプレッドシートへの保存に失敗しました (${res.status}): ${body}`);
-    }
-    return res.json();
-  }
-
   async function batchGetValues(sheetNames) {
     const token = await ensureSignedIn();
     const params = sheetNames
@@ -138,5 +103,5 @@ const SheetsClient = (() => {
     return isTokenValid();
   }
 
-  return { init, signIn, ensureSignedIn, appendRow, batchGetValues, isSignedIn };
+  return { init, signIn, ensureSignedIn, batchGetValues, isSignedIn };
 })();

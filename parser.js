@@ -88,7 +88,7 @@
     return entries;
   }
 
-  // 資産 / 固定費: month -> header row ("名称"/"金額") -> name/amount rows.
+  // 固定費: month -> header row ("名称"/"金額") -> name/amount rows.
   function parseNameAmount(rows) {
     const entries = [];
     for (const block of splitMonthBlocks(rows)) {
@@ -104,13 +104,14 @@
     return entries;
   }
 
-  // 収入: month -> header row ("給与形態"/"名称"/"金額") -> type/name/amount rows.
-  function parseIncome(rows) {
+  // Generic month -> header row (e.g. "給与形態"/"名称"/"金額" or "カテゴリー"/"名称"/"金額")
+  // -> type/name/amount rows. Used for 収入 and 資産.
+  function parseTypeNameAmount(rows, headerLabel) {
     const entries = [];
     for (const block of splitMonthBlocks(rows)) {
       for (const row of block.rows) {
         const col0 = cellText(row[0]);
-        if (!col0 || col0 === "給与形態") continue;
+        if (!col0 || col0 === headerLabel) continue;
         const amount = toNumber(row[2]);
         if (amount != null) {
           entries.push({
@@ -123,6 +124,16 @@
       }
     }
     return entries;
+  }
+
+  // 収入: month -> header row ("給与形態"/"名称"/"金額") -> type/name/amount rows.
+  function parseIncome(rows) {
+    return parseTypeNameAmount(rows, "給与形態");
+  }
+
+  // 資産: month -> header row ("カテゴリー"/"名称"/"金額", カテゴリー=現金/株式) -> type/name/amount rows.
+  function parseAssets(rows) {
+    return parseTypeNameAmount(rows, "カテゴリー");
   }
 
   // ローン: month -> header row -> 項目名/開始日/総額/分割回数/済回数/残回数/残高/引き落とし.
@@ -175,7 +186,9 @@
     extractCategories,
     parseKakeibo,
     parseNameAmount,
+    parseTypeNameAmount,
     parseIncome,
+    parseAssets,
     parseLoan,
     parseDebt,
   };

@@ -6,13 +6,9 @@ const CONFIG = {
   // The "¥¥¥" spreadsheet.
   SPREADSHEET_ID: "1UsPdLJs_s1miIROKsYfRf20GTI-xCV_WLRYHMLYq8rc",
 
-  // Name of the tab entries get appended to by the (currently paused) camera-capture feature.
-  SHEET_NAME: "ログ",
-
-  // Tab names the dashboard reads from. Update these if you rename a tab in the spreadsheet
-  // (e.g. once you settle on 家計簿(A案) as the final format, you may want to rename it to just 家計簿).
+  // Tab names the dashboard reads from. Update these if you rename a tab in the spreadsheet.
   DASHBOARD_SHEETS: {
-    KAKEIBO: "家計簿(A案)",
+    KAKEIBO: "支出",
     ASSETS: "資産",
     INCOME: "収入",
     LOANS: "ローン",

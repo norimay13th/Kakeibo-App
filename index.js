@@ -1,5 +1,5 @@
-// Reads the 7 hand-maintained sheets, parses them (parser.js), aggregates them
-// (aggregate.js), and renders summary tiles + charts. Read-only, no writes.
+// 支出ダッシュボード（月次）。7シートを読み取り→パース→集計し、統計カード・
+// カテゴリー別内訳・先月比較を描画する。読み取り専用、書き込みは一切行わない。
 (() => {
   const params = new URLSearchParams(location.search);
   const isMock = params.get("mock") === "1";
@@ -40,7 +40,7 @@
     const sheets = CONFIG.DASHBOARD_SHEETS;
     const ranges = [
       `${sheets.KAKEIBO}!B:D`,
-      `${sheets.ASSETS}!B:C`,
+      `${sheets.ASSETS}!B:D`,
       `${sheets.INCOME}!B:D`,
       `${sheets.LOANS}!B:I`,
       `${sheets.DEBTS}!B:E`,
@@ -65,7 +65,7 @@
     dataset = {
       categories,
       kakeibo: Parser.parseKakeibo(raw.kakeibo, categories),
-      assets: Parser.parseNameAmount(raw.assets),
+      assets: Parser.parseAssets(raw.assets),
       income: Parser.parseIncome(raw.income),
       loans: Parser.parseLoan(raw.loans),
       debts: Parser.parseDebt(raw.debts),
@@ -88,7 +88,17 @@
   }
 
   function yen(n) {
-    return `¥${Math.round(n).toLocaleString()}`;
+    const sign = n < 0 ? "-" : "";
+    return `${sign}¥${Math.round(Math.abs(n)).toLocaleString()}`;
+  }
+
+  // Only 貯金額/純資産額 are genuinely "good when positive, bad when negative";
+  // the rest are plain magnitudes and stay in the default text color.
+  function setStat(id, value, signed) {
+    const node = el(id);
+    node.textContent = yen(value);
+    node.classList.toggle("positive", !!signed && value > 0);
+    node.classList.toggle("negative", !!signed && value < 0);
   }
 
   function renderAll() {
@@ -96,22 +106,18 @@
     if (!month) return;
 
     const savings = Aggregate.monthlySavings(dataset, month);
-    el("stat-income").textContent = yen(savings.incomeTotal);
-    el("stat-expense").textContent = yen(savings.totalOutflow);
-    const savingsEl = el("stat-savings");
-    savingsEl.textContent = yen(savings.savings);
-    savingsEl.classList.toggle("negative", savings.savings < 0);
+    const netWorth = Aggregate.netWorthAsOf(dataset, month);
 
-    const netWorthSeries = Aggregate.netWorthByMonth(dataset);
-    const latest = netWorthSeries[netWorthSeries.length - 1];
-    const netWorthEl = el("stat-networth");
-    netWorthEl.textContent = latest ? yen(latest.netWorth) : "—";
-    netWorthEl.classList.toggle("negative", !!latest && latest.netWorth < 0);
+    setStat("stat-income", savings.incomeTotal);
+    setStat("stat-expense", savings.totalOutflow);
+    setStat("stat-savings", savings.savings, true);
+    setStat("stat-networth", netWorth.netWorth, true);
+    setStat("stat-assets", netWorth.assetsTotal);
+    setStat("stat-liabilities", netWorth.liabilitiesTotal);
 
     renderWarnings(month);
     renderCategoryChart(month);
-    renderSavingsTrendChart();
-    renderNetWorthChart(netWorthSeries);
+    renderCompareTable(month, savings, netWorth);
   }
 
   function renderWarnings(month) {
@@ -141,39 +147,45 @@
   }
 
   function renderCategoryChart(month) {
-    const byCategory = Aggregate.monthlyExpenseByCategory(dataset.kakeibo, month);
+    const breakdown = Aggregate.monthlyExpenseBreakdown(dataset, month);
     destroyChart("category");
     charts.category = new Chart(el("chart-category"), {
       type: "doughnut",
       data: {
-        labels: Object.keys(byCategory),
-        datasets: [{ data: Object.values(byCategory) }],
+        labels: Object.keys(breakdown),
+        datasets: [{ data: Object.values(breakdown) }],
       },
-      options: { plugins: { legend: { position: "bottom" } } },
+      options: { plugins: { legend: { position: "bottom", labels: { boxWidth: 12, font: { size: 11 } } } } },
     });
   }
 
-  function renderSavingsTrendChart() {
+  function renderCompareTable(month, savings, netWorth) {
     const months = Aggregate.distinctMonths(dataset.kakeibo);
-    const values = months.map((m) => Aggregate.monthlySavings(dataset, m).savings);
-    destroyChart("savings");
-    charts.savings = new Chart(el("chart-savings"), {
-      type: "bar",
-      data: { labels: months, datasets: [{ label: "貯金額", data: values }] },
-      options: { plugins: { legend: { display: false } } },
-    });
-  }
+    const prevMonth = Aggregate.previousMonth(months, month);
+    const prevSavings = prevMonth ? Aggregate.monthlySavings(dataset, prevMonth) : null;
+    const prevNetWorth = prevMonth ? Aggregate.netWorthAsOf(dataset, prevMonth) : null;
 
-  function renderNetWorthChart(series) {
-    destroyChart("networth");
-    charts.networth = new Chart(el("chart-networth"), {
-      type: "line",
-      data: {
-        labels: series.map((s) => s.month),
-        datasets: [{ label: "純資産", data: series.map((s) => s.netWorth) }],
-      },
-      options: { plugins: { legend: { display: false } } },
-    });
+    // increaseIsGood: whether a bigger number than last month is good news (green) or bad (red).
+    const rows = [
+      ["収入", savings.incomeTotal, prevSavings && prevSavings.incomeTotal, true],
+      ["支出", savings.totalOutflow, prevSavings && prevSavings.totalOutflow, false],
+      ["貯金額", savings.savings, prevSavings && prevSavings.savings, true],
+      ["純資産額", netWorth.netWorth, prevNetWorth && prevNetWorth.netWorth, true],
+      ["資産額", netWorth.assetsTotal, prevNetWorth && prevNetWorth.assetsTotal, true],
+      ["借金+ローン額", netWorth.liabilitiesTotal, prevNetWorth && prevNetWorth.liabilitiesTotal, false],
+    ];
+
+    const tbody = document.querySelector("#compare-table tbody");
+    tbody.innerHTML = rows
+      .map(([label, cur, prev, increaseIsGood]) => {
+        const prevText = prev == null ? "—" : yen(prev);
+        const diff = prev == null ? null : cur - prev;
+        const diffText = diff == null ? "—" : `${diff >= 0 ? "+" : ""}${yen(diff)}`;
+        const isGood = diff == null ? null : increaseIsGood ? diff >= 0 : diff <= 0;
+        const diffClass = diff == null || diff === 0 ? "" : isGood ? "positive" : "negative";
+        return `<tr><td>${label}</td><td>${yen(cur)}</td><td>${prevText}</td><td class="${diffClass}">${diffText}</td></tr>`;
+      })
+      .join("");
   }
 
   monthSelect.addEventListener("change", renderAll);
@@ -220,6 +232,12 @@
     } catch (e) {
       showError(e.message);
     }
+  }
+
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("sw.js").catch(() => {});
+    });
   }
 
   init();

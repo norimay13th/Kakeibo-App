@@ -1,0 +1,193 @@
+/* Shared Apple-inspired design system: system blue accent, grouped-list backgrounds,
+   flat cards with a whisper of shadow instead of borders. Used by index.html and trend.html. */
+
+:root {
+  --accent: #007AFF;
+  --positive: #34C759;
+  --negative: #FF3B30;
+  --bg: #F2F2F7;
+  --card: #FFFFFF;
+  --text: #000000;
+  --text-secondary: rgba(60, 60, 67, 0.6);
+  --text-tertiary: rgba(60, 60, 67, 0.35);
+  --separator: rgba(60, 60, 67, 0.12);
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --radius: 16px;
+  --radius-sm: 10px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --accent: #0A84FF;
+    --positive: #30D158;
+    --negative: #FF453A;
+    --bg: #000000;
+    --card: #1C1C1E;
+    --text: #FFFFFF;
+    --text-secondary: rgba(235, 235, 245, 0.6);
+    --text-tertiary: rgba(235, 235, 245, 0.35);
+    --separator: rgba(235, 235, 245, 0.12);
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Hiragino Sans", "Yu Gothic", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  padding-bottom: env(safe-area-inset-bottom);
+  -webkit-font-smoothing: antialiased;
+}
+
+header {
+  padding: 24px 20px 12px;
+}
+header h1 {
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0 0 14px;
+  letter-spacing: -0.02em;
+}
+
+.segmented {
+  display: flex;
+  background: rgba(118, 118, 128, 0.12);
+  border-radius: 10px;
+  padding: 2px;
+  gap: 2px;
+}
+.segmented a {
+  flex: 1;
+  text-align: center;
+  padding: 7px 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  text-decoration: none;
+  border-radius: 8px;
+}
+.segmented a.active {
+  background: var(--card);
+  box-shadow: var(--shadow);
+}
+
+main {
+  padding: 4px 20px 48px;
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+select.picker {
+  width: 100%;
+  padding: 12px 14px;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 17px;
+  font-weight: 600;
+  background: var(--card);
+  color: var(--accent);
+  box-shadow: var(--shadow);
+  margin: 16px 0;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+#warning-banner {
+  display: none;
+  background: rgba(255, 149, 0, 0.12);
+  color: #B25000;
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  margin-bottom: 16px;
+}
+@media (prefers-color-scheme: dark) {
+  #warning-banner { color: #FFB340; }
+}
+#warning-banner.active { display: block; }
+#warning-banner.error { background: rgba(255, 59, 48, 0.12); color: var(--negative); }
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.stat-card {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px;
+}
+.stat-card .label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+.stat-card .value {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+.stat-card .value.positive { color: var(--positive); }
+.stat-card .value.negative { color: var(--negative); }
+
+.hero-card {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 20px;
+  margin-bottom: 16px;
+  text-align: center;
+}
+.hero-card .label { font-size: 14px; color: var(--text-secondary); margin-bottom: 8px; }
+.hero-card .value {
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.hero-card .value.positive { color: var(--positive); }
+.hero-card .value.negative { color: var(--negative); }
+
+.chart-card {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.chart-card h2 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 12px;
+}
+.chart-card canvas { max-height: 260px; }
+
+table.compare {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+table.compare th {
+  text-align: right;
+  font-weight: 500;
+  color: var(--text-secondary);
+  font-size: 12px;
+  padding: 0 0 8px;
+}
+table.compare th:first-child { text-align: left; }
+table.compare td {
+  padding: 10px 0;
+  border-top: 1px solid var(--separator);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+table.compare td:first-child { text-align: left; color: var(--text-secondary); }
+table.compare td.positive { color: var(--positive); }
+table.compare td.negative { color: var(--negative); }

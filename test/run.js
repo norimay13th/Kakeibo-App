@@ -53,10 +53,22 @@ const withBadCategory = Parser.parseKakeibo(
 );
 assertEqual(withBadCategory[0].unknown, true, "parseKakeibo flags categories not in the rule list");
 
-// --- parseNameAmount (資産 / 固定費) ---
-const assets = Parser.parseNameAmount(fixtures.assetRows);
-assertEqual(assets, [{ month: "2026年7月", name: "楽天証券", amount: 169437 }], "parseNameAmount (資産)");
+// --- parseAssets (資産: カテゴリー/名称/金額) ---
+const assets = Parser.parseAssets(fixtures.assetRows);
+assertEqual(assets.length, 6, "parseAssets entry count");
+assertEqual(assets[0], { month: "2026年7月", type: "現金", name: "楽天銀行", amount: 135354 }, "parseAssets first entry shape");
+assertEqual(
+  assets.filter((e) => e.type === "現金").reduce((t, e) => t + e.amount, 0),
+  391802,
+  "parseAssets 現金 total"
+);
+assertEqual(
+  assets.filter((e) => e.type === "株式").reduce((t, e) => t + e.amount, 0),
+  169437,
+  "parseAssets 株式 total"
+);
 
+// --- parseNameAmount (固定費) ---
 const fixedCosts = Parser.parseNameAmount(fixtures.fixedCostRows);
 assertEqual(fixedCosts.length, 12, "parseNameAmount (固定費) entry count");
 const fixedCostTotal = fixedCosts.reduce((t, e) => t + e.amount, 0);
@@ -104,11 +116,78 @@ assertEqual(savings.debtPaymentTotal, 17000, "monthlySavings debtPaymentTotal");
 assertEqual(savings.incomeTotal, 0, "monthlySavings incomeTotal (収入 fixture is for June, not July)");
 assertEqual(savings.savings, -170751, "monthlySavings final savings figure");
 
-// --- aggregate: netWorthByMonth ---
-const netWorth = Aggregate.netWorthByMonth({ assets, loans, debts });
-assertEqual(netWorth, [
-  { month: "2026年7月", assetsTotal: 169437, liabilitiesTotal: 931442, netWorth: -762005 },
-], "netWorthByMonth");
+const dataset = { income, kakeibo, fixedCosts, loans, debts, assets };
+
+// --- aggregate: netWorthAsOf ---
+assertEqual(
+  Aggregate.netWorthAsOf(dataset, "2026年7月"),
+  { month: "2026年7月", assetsTotal: 561239, liabilitiesTotal: 931442, netWorth: -370203 },
+  "netWorthAsOf on the exact recorded month"
+);
+
+// --- aggregate: carryForwardSum ---
+assertEqual(
+  Aggregate.carryForwardSum(assets, "2026年8月", "amount"),
+  { month: "2026年7月", total: 561239 },
+  "carryForwardSum rolls a later month forward to the last recorded snapshot"
+);
+assertEqual(
+  Aggregate.carryForwardSum(assets, "2026年1月", "amount"),
+  { month: null, total: 0 },
+  "carryForwardSum returns 0 for a month before any data exists"
+);
+
+// --- aggregate: assetAllocationAsOf ---
+assertEqual(
+  Aggregate.assetAllocationAsOf(assets, "2026年7月"),
+  { cash: 391802, stock: 169437 },
+  "assetAllocationAsOf splits 現金/株式"
+);
+
+// --- aggregate: monthlyExpenseBreakdown (8-slice pie) ---
+assertEqual(
+  Aggregate.monthlyExpenseBreakdown(dataset, "2026年7月"),
+  {
+    医療費: 4920,
+    娯楽費: 12600,
+    雑費: 2320,
+    食費: 5620,
+    生活費: 5710,
+    固定費: 100632,
+    "借金・ローン返済": 38949,
+  },
+  "monthlyExpenseBreakdown adds 固定費 and 借金・ローン返済 to the 6 categories"
+);
+
+// --- aggregate: previousMonth ---
+assertEqual(
+  Aggregate.previousMonth(["2026年6月", "2026年7月"], "2026年7月"),
+  "2026年6月",
+  "previousMonth finds the prior entry in a sorted month list"
+);
+assertEqual(Aggregate.previousMonth(["2026年7月"], "2026年7月"), null, "previousMonth is null with no earlier month");
+
+// --- aggregate: distinctYears ---
+assertEqual(Aggregate.distinctYears(assets), [2026], "distinctYears");
+
+// --- aggregate: yearlySeries ---
+const series2026 = Aggregate.yearlySeries(dataset, 2026);
+assertEqual(series2026.length, 12, "yearlySeries covers all 12 months");
+assertEqual(
+  series2026.find((s) => s.month === "2026年6月"),
+  { month: "2026年6月", income: 425433, expense: 0, savings: 425433, liabilities: 0, assets: 0 },
+  "yearlySeries: June has income but no carried-forward balances yet (July is later)"
+);
+assertEqual(
+  series2026.find((s) => s.month === "2026年7月"),
+  { month: "2026年7月", income: 0, expense: 170751, savings: -170751, liabilities: 931442, assets: 561239 },
+  "yearlySeries: July has expenses and its own balances"
+);
+assertEqual(
+  series2026.find((s) => s.month === "2026年8月"),
+  { month: "2026年8月", income: 0, expense: 0, savings: 0, liabilities: 931442, assets: 561239 },
+  "yearlySeries: August carries July's balances forward with no new flow"
+);
 
 // --- aggregate: month sorting ---
 assertEqual(

@@ -1,18 +1,18 @@
-const CACHE_NAME = "kakeibo-shell-v2";
+const CACHE_NAME = "kakeibo-shell-v3";
 const SHELL_FILES = [
   "./",
   "./index.html",
-  "./app.js",
+  "./trend.html",
+  "./index.js",
+  "./trend.js",
   "./sheets.js",
-  "./ocr.js",
+  "./parser.js",
+  "./aggregate.js",
   "./config.js",
+  "./style.css",
   "./manifest.json",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
-  "./dashboard.html",
-  "./dashboard.js",
-  "./parser.js",
-  "./aggregate.js",
 ];
 
 self.addEventListener("install", (event) => {
