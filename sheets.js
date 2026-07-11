@@ -1,11 +1,48 @@
 // Google sign-in (GIS token client) + read-only Sheets API access, all client-side, no server involved.
 const SheetsClient = (() => {
   const SCOPE = "https://www.googleapis.com/auth/spreadsheets.readonly";
+  // index.html and trend.html are separate page loads, so an in-memory-only token would
+  // force a fresh sign-in every time you switch tabs. sessionStorage survives navigation
+  // within the same browser tab (and is cleared when the tab closes), which is the right
+  // lifetime for a short-lived OAuth access token.
+  const STORAGE_KEY = "kakeibo_token";
 
   let tokenClient = null;
   let accessToken = null;
   let tokenExpiresAt = 0;
   let onAuthChange = () => {};
+
+  function loadStoredToken() {
+    try {
+      const raw = sessionStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      const { token, expiresAt } = JSON.parse(raw);
+      if (token && expiresAt && Date.now() < expiresAt - 30000) {
+        accessToken = token;
+        tokenExpiresAt = expiresAt;
+      }
+    } catch (e) {
+      // Ignore corrupt/inaccessible storage; just fall back to requiring sign-in.
+    }
+  }
+
+  function storeToken() {
+    try {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ token: accessToken, expiresAt: tokenExpiresAt }));
+    } catch (e) {
+      // Ignore storage failures (e.g. private browsing); auth still works for this page load.
+    }
+  }
+
+  function clearStoredToken() {
+    try {
+      sessionStorage.removeItem(STORAGE_KEY);
+    } catch (e) {
+      // Ignore.
+    }
+  }
+
+  loadStoredToken();
 
   function isTokenValid() {
     return accessToken && Date.now() < tokenExpiresAt - 30000;
@@ -23,9 +60,12 @@ const SheetsClient = (() => {
         }
         accessToken = response.access_token;
         tokenExpiresAt = Date.now() + response.expires_in * 1000;
+        storeToken();
         onAuthChange(true);
       },
     });
+    // A token restored from a previous page in this tab is already valid; let the caller know.
+    if (isTokenValid()) onAuthChange(true);
   }
 
   const SIGN_IN_TIMEOUT_MS = 30000;
@@ -46,6 +86,7 @@ const SheetsClient = (() => {
         }
         accessToken = response.access_token;
         tokenExpiresAt = Date.now() + response.expires_in * 1000;
+        storeToken();
         onAuthChange(true);
         resolve(accessToken);
       };
@@ -79,6 +120,7 @@ const SheetsClient = (() => {
 
     if (res.status === 401) {
       accessToken = null;
+      clearStoredToken();
       const freshToken = await ensureSignedIn();
       res = await fetch(url, {
         headers: { Authorization: `Bearer ${freshToken}` },
