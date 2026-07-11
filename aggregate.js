@@ -72,6 +72,65 @@
     return breakdown;
   }
 
+  const EXPENSE_CATEGORY_ORDER = [
+    "固定費",
+    "ローン引き落とし額",
+    "借金返済額",
+    "食費",
+    "雑費",
+    "生活費",
+    "娯楽費",
+    "自己投資",
+    "医療費",
+  ];
+
+  // Fixed 9-row breakdown (固定費/ローン/借金 + the 6 家計簿 categories) for the
+  // category comparison table and its matching drill-down modal.
+  function monthlyCategoryTotals({ kakeibo, fixedCosts, loans, debts }, month) {
+    const byCategory = monthlyExpenseByCategory(kakeibo, month);
+    const values = {
+      固定費: sumBy(fixedCosts, month, "amount"),
+      ローン引き落とし額: sumBy(loans, month, "payment"),
+      借金返済額: sumBy(debts, month, "payment"),
+      ...byCategory,
+    };
+    return EXPENSE_CATEGORY_ORDER.map((label) => ({ label, amount: values[label] || 0 }));
+  }
+
+  // Itemized 収入 entries for the exact month (income is a flow, not a snapshot to carry forward).
+  function incomeItems(income, month) {
+    return income
+      .filter((e) => e.month === month)
+      .map((e) => ({ name: e.name, amount: e.amount }))
+      .sort((a, b) => b.amount - a.amount);
+  }
+
+  // Itemized 資産 entries as of `month`, carried forward to the latest recorded month and
+  // split into 現金/株式 the same way assetAllocationAsOf totals them.
+  function assetItemsAsOf(assets, month) {
+    const carried = carryForwardSum(assets, month, "amount");
+    const atMonth = carried.month ? assets.filter((e) => e.month === carried.month) : [];
+    const byType = (type) =>
+      atMonth
+        .filter((e) => e.type === type)
+        .map((e) => ({ name: e.name, amount: e.amount }))
+        .sort((a, b) => b.amount - a.amount);
+    return { month: carried.month, cash: byType("現金"), stock: byType("株式") };
+  }
+
+  // Itemized ローン/借金 entries as of `month`. Each sheet's carry-forward month is
+  // resolved independently, matching how netWorthAsOf totals them.
+  function liabilityItemsAsOf(loans, debts, month) {
+    const itemsAsOf = (entries) => {
+      const carried = carryForwardSum(entries, month, "payment");
+      const items = (carried.month ? entries.filter((e) => e.month === carried.month) : [])
+        .map((e) => ({ name: e.name, payment: e.payment }))
+        .sort((a, b) => b.payment - a.payment);
+      return { month: carried.month, items };
+    };
+    return { loans: itemsAsOf(loans), debts: itemsAsOf(debts) };
+  }
+
   function monthlySavings({ income, kakeibo, fixedCosts, loans, debts }, month) {
     const incomeTotal = sumBy(income, month, "amount");
     const expenseTotal = sumBy(kakeibo, month, "amount");
@@ -141,6 +200,11 @@
     carryForwardSum,
     monthlyExpenseByCategory,
     monthlyExpenseBreakdown,
+    EXPENSE_CATEGORY_ORDER,
+    monthlyCategoryTotals,
+    incomeItems,
+    assetItemsAsOf,
+    liabilityItemsAsOf,
     monthlySavings,
     netWorthAsOf,
     assetAllocationAsOf,

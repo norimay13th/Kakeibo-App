@@ -159,6 +159,79 @@ assertEqual(
   "monthlyExpenseBreakdown adds 固定費 and 借金・ローン返済 to the 6 categories"
 );
 
+// --- aggregate: monthlyCategoryTotals (9-row category comparison table) ---
+assertEqual(
+  Aggregate.monthlyCategoryTotals(dataset, "2026年7月"),
+  [
+    { label: "固定費", amount: 100632 },
+    { label: "ローン引き落とし額", amount: 21949 },
+    { label: "借金返済額", amount: 17000 },
+    { label: "食費", amount: 5620 },
+    { label: "雑費", amount: 2320 },
+    { label: "生活費", amount: 5710 },
+    { label: "娯楽費", amount: 12600 },
+    { label: "自己投資", amount: 0 },
+    { label: "医療費", amount: 4920 },
+  ],
+  "monthlyCategoryTotals returns the fixed 9-row breakdown in order"
+);
+
+// --- aggregate: incomeItems ---
+assertEqual(
+  Aggregate.incomeItems(income, "2026年6月"),
+  [
+    { name: "ANREALAGE 給与手取り", amount: 225433 },
+    { name: "動画編集 ユウキ", amount: 200000 },
+  ],
+  "incomeItems lists 収入 entries for the exact month, amount descending"
+);
+assertEqual(Aggregate.incomeItems(income, "2026年7月"), [], "incomeItems is empty for a month with no income rows");
+
+// --- aggregate: assetItemsAsOf ---
+assertEqual(
+  Aggregate.assetItemsAsOf(assets, "2026年7月"),
+  {
+    month: "2026年7月",
+    cash: [
+      { name: "きらぼし銀行", amount: 230106 },
+      { name: "楽天銀行", amount: 135354 },
+      { name: "楽天Pay", amount: 19636 },
+      { name: "財布", amount: 6000 },
+      { name: "PayPay", amount: 706 },
+    ],
+    stock: [{ name: "楽天証券", amount: 169437 }],
+  },
+  "assetItemsAsOf splits itemized 資産 entries into 現金/株式, amount descending"
+);
+assertEqual(
+  Aggregate.assetItemsAsOf(assets, "2026年8月").month,
+  "2026年7月",
+  "assetItemsAsOf carries forward to the last recorded month"
+);
+
+// --- aggregate: liabilityItemsAsOf ---
+assertEqual(
+  Aggregate.liabilityItemsAsOf(loans, debts, "2026年7月"),
+  {
+    loans: {
+      month: "2026年7月",
+      items: [
+        { name: "Mac Book Pro M2PRO 32GB 1TB", payment: 12321 },
+        { name: "LUMIX-S5IIX 契約日2024/3/25日", payment: 5500 },
+        { name: "iPhone15 36回分割 (28回目)", payment: 4128 },
+      ],
+    },
+    debts: {
+      month: "2026年7月",
+      items: [
+        { name: "アコム", payment: 14000 },
+        { name: "レイク", payment: 3000 },
+      ],
+    },
+  },
+  "liabilityItemsAsOf lists itemized ローン/借金 entries, payment descending"
+);
+
 // --- aggregate: previousMonth ---
 assertEqual(
   Aggregate.previousMonth(["2026年6月", "2026年7月"], "2026年7月"),
