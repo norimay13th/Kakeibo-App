@@ -11,29 +11,15 @@
 <link rel="manifest" href="manifest.json">
 <link rel="stylesheet" href="style.css">
 <title>家計簿</title>
-<style>
-  header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
-  #signin-btn {
-    background: none;
-    border: none;
-    color: var(--accent);
-    font-size: 14px;
-    padding: 4px 0;
-    white-space: nowrap;
-  }
-</style>
 </head>
 <body>
 
 <header>
-  <div style="flex:1">
-    <h1>支出</h1>
-    <nav class="segmented">
-      <a href="index.html" class="active">支出</a>
-      <a href="trend.html">資産推移</a>
-    </nav>
-  </div>
-  <button id="signin-btn" type="button">サインイン</button>
+  <h1>支出</h1>
+  <nav class="segmented">
+    <a href="index.html" class="active">支出</a>
+    <a href="trend.html">資産推移</a>
+  </nav>
 </header>
 
 <main>
@@ -84,7 +70,6 @@
   </div>
 </main>
 
-<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <script src="config.js"></script>
 <script src="sheets.js"></script>

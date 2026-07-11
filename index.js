@@ -7,7 +7,6 @@
   const el = (id) => document.getElementById(id);
   const monthSelect = el("month-select");
   const warningBanner = el("warning-banner");
-  const signinBtn = el("signin-btn");
 
   const charts = {};
   let dataset = null;
@@ -190,55 +189,11 @@
 
   monthSelect.addEventListener("change", renderAll);
 
-  function waitForGoogleIdentity(timeoutMs = 8000) {
-    return new Promise((resolve, reject) => {
-      const start = Date.now();
-      (function poll() {
-        if (window.google && window.google.accounts && window.google.accounts.oauth2) {
-          resolve();
-        } else if (Date.now() - start > timeoutMs) {
-          reject(new Error("Googleサインイン機能の読み込みに失敗しました"));
-        } else {
-          setTimeout(poll, 100);
-        }
-      })();
-    });
-  }
-
-  async function init() {
-    if (isMock) {
-      signinBtn.style.display = "none";
-      try {
-        await loadData();
-      } catch (e) {
-        showError(e.message);
-      }
-      return;
-    }
-
-    try {
-      await waitForGoogleIdentity();
-      SheetsClient.init((signedIn, error) => {
-        signinBtn.textContent = signedIn ? "サインイン済み" : "サインイン";
-        if (signedIn) {
-          loadData().catch((e) => showError(e.message));
-        } else if (error) {
-          showError(`サインインエラー: ${error}`);
-        }
-      });
-      signinBtn.addEventListener("click", () => {
-        SheetsClient.signIn(true).catch((e) => showError(e.message));
-      });
-    } catch (e) {
-      showError(e.message);
-    }
-  }
-
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker.register("sw.js").catch(() => {});
     });
   }
 
-  init();
+  loadData().catch((e) => showError(e.message));
 })();

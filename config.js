@@ -1,7 +1,9 @@
-// User-specific settings. Fill in GOOGLE_CLIENT_ID after completing the Google Cloud setup steps in README.md.
+// User-specific settings. Fill in GOOGLE_API_KEY after completing the Google Cloud setup steps in README.md.
 const CONFIG = {
-  // OAuth 2.0 Client ID (Web application) from Google Cloud Console. This is a public identifier, not a secret.
-  GOOGLE_CLIENT_ID: "538236216067-sl2rqn3l2dv5anbeuuel75b112sittaf.apps.googleusercontent.com",
+  // API key restricted to the Google Sheets API + this app's domain. The spreadsheet is
+  // shared as "anyone with the link can view", so no user sign-in is needed to read it —
+  // this key just lets the browser call the Sheets API directly.
+  GOOGLE_API_KEY: "YOUR_API_KEY",
 
   // The "¥¥¥" spreadsheet.
   SPREADSHEET_ID: "1UsPdLJs_s1miIROKsYfRf20GTI-xCV_WLRYHMLYq8rc",
