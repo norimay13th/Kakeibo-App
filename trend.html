@@ -17,7 +17,7 @@
 <header>
   <h1>資産推移</h1>
   <nav class="segmented">
-    <a href="index.html">支出</a>
+    <a href="index.html">家計簿</a>
     <a href="trend.html" class="active">資産推移</a>
   </nav>
 </header>
@@ -34,32 +34,45 @@
 
   <div class="chart-card">
     <h2>収入金額</h2>
-    <canvas id="chart-income"></canvas>
+    <div class="chart-wrap">
+      <canvas id="chart-income"></canvas>
+    </div>
   </div>
   <div class="chart-card">
     <h2>支出金額</h2>
-    <canvas id="chart-expense"></canvas>
+    <div class="chart-wrap">
+      <canvas id="chart-expense"></canvas>
+    </div>
   </div>
   <div class="chart-card">
     <h2>貯金額</h2>
-    <canvas id="chart-savings"></canvas>
+    <div class="chart-wrap">
+      <canvas id="chart-savings"></canvas>
+    </div>
   </div>
   <div class="chart-card">
     <h2>借金+ローン額</h2>
-    <canvas id="chart-liabilities"></canvas>
+    <div class="chart-wrap">
+      <canvas id="chart-liabilities"></canvas>
+    </div>
   </div>
   <div class="chart-card">
     <h2>資産額</h2>
-    <canvas id="chart-assets"></canvas>
+    <div class="chart-wrap">
+      <canvas id="chart-assets"></canvas>
+    </div>
   </div>
 
   <div class="chart-card">
     <h2>保有資産割合</h2>
-    <canvas id="chart-allocation"></canvas>
+    <div class="chart-wrap">
+      <canvas id="chart-allocation"></canvas>
+    </div>
   </div>
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2/dist/chartjs-plugin-datalabels.min.js"></script>
 <script src="config.js"></script>
 <script src="sheets.js"></script>
 <script src="parser.js"></script>

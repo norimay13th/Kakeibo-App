@@ -15,9 +15,9 @@
 <body>
 
 <header>
-  <h1>支出</h1>
+  <h1>家計簿</h1>
   <nav class="segmented">
-    <a href="index.html" class="active">支出</a>
+    <a href="index.html" class="active">家計簿</a>
     <a href="trend.html">資産推移</a>
   </nav>
 </header>
@@ -56,7 +56,9 @@
 
   <div class="chart-card">
     <h2>カテゴリー別支出</h2>
-    <canvas id="chart-category"></canvas>
+    <div class="chart-wrap">
+      <canvas id="chart-category"></canvas>
+    </div>
   </div>
 
   <div class="chart-card">
@@ -71,6 +73,7 @@
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2/dist/chartjs-plugin-datalabels.min.js"></script>
 <script src="config.js"></script>
 <script src="sheets.js"></script>
 <script src="parser.js"></script>

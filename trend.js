@@ -8,6 +8,11 @@
   const yearSelect = el("year-select");
   const warningBanner = el("warning-banner");
 
+  // The datalabels plugin auto-registers itself globally when loaded via the CDN script,
+  // which would otherwise silently attach to every chart. Unregister it globally and opt
+  // individual charts in via their own `plugins: [ChartDataLabels]` instead.
+  if (window.ChartDataLabels) Chart.unregister(window.ChartDataLabels);
+
   const charts = {};
   let dataset = null;
 
@@ -145,8 +150,12 @@
           },
         ],
       },
-      options: { plugins: { legend: { display: false } } },
+      options: { maintainAspectRatio: false, plugins: { legend: { display: false } } },
     });
+  }
+
+  function textColor() {
+    return getComputedStyle(document.documentElement).getPropertyValue("--text").trim() || "#000";
   }
 
   function renderAllocationChart(year) {
@@ -158,7 +167,28 @@
         labels: ["現金", "株式"],
         datasets: [{ data: [allocation.cash, allocation.stock] }],
       },
-      options: { plugins: { legend: { position: "bottom" } } },
+      plugins: [ChartDataLabels],
+      options: {
+        maintainAspectRatio: false,
+        layout: { padding: 24 },
+        plugins: {
+          legend: { display: false },
+          datalabels: {
+            color: textColor(),
+            font: { size: 11, weight: "500" },
+            textAlign: "center",
+            formatter: (value, ctx) => {
+              const label = ctx.chart.data.labels[ctx.dataIndex];
+              const total = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+              const pct = total ? Math.round((value / total) * 100) : 0;
+              return [label, `¥${Math.round(value).toLocaleString()} (${pct}%)`];
+            },
+            anchor: "end",
+            align: "end",
+            clip: false,
+          },
+        },
+      },
     });
   }
 

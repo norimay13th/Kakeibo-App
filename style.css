@@ -167,7 +167,8 @@ select.picker {
   font-weight: 600;
   margin: 0 0 12px;
 }
-.chart-card canvas { max-height: 260px; }
+.chart-wrap { position: relative; height: 260px; }
+.chart-wrap canvas { max-height: 100%; }
 
 table.compare {
   width: 100%;

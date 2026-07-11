@@ -1,4 +1,4 @@
-const CACHE_NAME = "kakeibo-shell-v5";
+const CACHE_NAME = "kakeibo-shell-v9";
 const SHELL_FILES = [
   "./",
   "./index.html",
@@ -31,12 +31,20 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
+// Network-first: always prefer the live file so edits show up immediately. The cache is
+// only a fallback for when the device is offline, and gets refreshed on every successful fetch.
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (event.request.method !== "GET" || url.origin !== self.location.origin) {
     return;
   }
   event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request))
+    fetch(event.request)
+      .then((response) => {
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        return response;
+      })
+      .catch(() => caches.match(event.request))
   );
 });

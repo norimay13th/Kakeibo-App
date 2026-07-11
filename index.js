@@ -8,6 +8,11 @@
   const monthSelect = el("month-select");
   const warningBanner = el("warning-banner");
 
+  // The datalabels plugin auto-registers itself globally when loaded via the CDN script,
+  // which would otherwise silently attach to every chart. Unregister it globally and opt
+  // individual charts in via their own `plugins: [ChartDataLabels]` instead.
+  if (window.ChartDataLabels) Chart.unregister(window.ChartDataLabels);
+
   const charts = {};
   let dataset = null;
 
@@ -145,16 +150,47 @@
     }
   }
 
+  function textColor() {
+    return getComputedStyle(document.documentElement).getPropertyValue("--text").trim() || "#000";
+  }
+
   function renderCategoryChart(month) {
     const breakdown = Aggregate.monthlyExpenseBreakdown(dataset, month);
+    const entries = Object.entries(breakdown).filter(([, value]) => value > 0);
     destroyChart("category");
     charts.category = new Chart(el("chart-category"), {
       type: "doughnut",
       data: {
-        labels: Object.keys(breakdown),
-        datasets: [{ data: Object.values(breakdown) }],
+        labels: entries.map(([label]) => label),
+        datasets: [{ data: entries.map(([, value]) => value) }],
       },
-      options: { plugins: { legend: { position: "bottom", labels: { boxWidth: 12, font: { size: 11 } } } } },
+      plugins: [ChartDataLabels],
+      options: {
+        maintainAspectRatio: false,
+        layout: { padding: 24 },
+        plugins: {
+          legend: { display: false },
+          datalabels: {
+            color: textColor(),
+            font: { size: 11, weight: "500" },
+            textAlign: "center",
+            formatter: (value, ctx) => {
+              const label = ctx.chart.data.labels[ctx.dataIndex];
+              const total = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+              const pct = Math.round((value / total) * 100);
+              return [label, `¥${Math.round(value).toLocaleString()} (${pct}%)`];
+            },
+            anchor: "end",
+            align: "end",
+            clip: false,
+            display: (ctx) => {
+              const value = ctx.dataset.data[ctx.dataIndex];
+              const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+              return value / total > 0.02;
+            },
+          },
+        },
+      },
     });
   }
 
