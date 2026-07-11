@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1D9E75">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<title>資産・家計簿ダッシュボード</title>
+<style>
+  :root {
+    --accent: #1D9E75;
+    --bg: #F7F7F5;
+    --card: #FFFFFF;
+    --text: #222222;
+    --text-muted: #767670;
+    --danger: #C0392B;
+    --border: #E3E2DC;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  header {
+    padding: 20px 20px 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  header h1 { font-size: 18px; margin: 0; }
+  header a { font-size: 13px; color: var(--text-muted); text-decoration: none; }
+  #signin-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 12px;
+    color: var(--text);
+  }
+  main { padding: 12px 20px 40px; max-width: 520px; margin: 0 auto; }
+
+  select#month-select {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 16px;
+    background: var(--card);
+    color: var(--text);
+    margin-bottom: 14px;
+  }
+
+  #warning-banner {
+    display: none;
+    background: #FFF4E5;
+    border: 1px solid #E8B45C;
+    color: #7A4E00;
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 13px;
+    margin-bottom: 14px;
+    line-height: 1.5;
+  }
+  #warning-banner.active { display: block; }
+  #warning-banner.error { background: #FCEBEB; border-color: #E24B4A; color: #791F1F; }
+
+  .stat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+  .stat-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px;
+  }
+  .stat-card .label { font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
+  .stat-card .value { font-size: 20px; font-weight: 600; }
+  .stat-card .value.negative { color: var(--danger); }
+
+  .chart-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px;
+    margin-bottom: 16px;
+  }
+  .chart-card h2 { font-size: 14px; color: var(--text-muted); margin: 0 0 10px; font-weight: 500; }
+  .chart-card canvas { max-height: 260px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>資産・家計簿ダッシュボード</h1>
+  <button id="signin-btn" type="button">サインイン</button>
+</header>
+
+<main>
+  <a href="index.html">← ホームに戻る</a>
+
+  <select id="month-select"></select>
+
+  <div id="warning-banner"></div>
+
+  <div class="stat-grid">
+    <div class="stat-card">
+      <div class="label">今月の収入</div>
+      <div class="value" id="stat-income">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">今月の支出</div>
+      <div class="value" id="stat-expense">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">今月の貯金額</div>
+      <div class="value" id="stat-savings">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">現在の純資産</div>
+      <div class="value" id="stat-networth">—</div>
+    </div>
+  </div>
+
+  <div class="chart-card">
+    <h2>カテゴリ別支出</h2>
+    <canvas id="chart-category"></canvas>
+  </div>
+
+  <div class="chart-card">
+    <h2>貯金推移</h2>
+    <canvas id="chart-savings"></canvas>
+  </div>
+
+  <div class="chart-card">
+    <h2>純資産推移</h2>
+    <canvas id="chart-networth"></canvas>
+  </div>
+</main>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script src="config.js"></script>
+<script src="sheets.js"></script>
+<script src="parser.js"></script>
+<script src="aggregate.js"></script>
+<script src="dashboard.js"></script>
+</body>
+</html>

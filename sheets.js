@@ -101,9 +101,42 @@ const SheetsClient = (() => {
     return res.json();
   }
 
+  async function batchGetValues(sheetNames) {
+    const token = await ensureSignedIn();
+    const params = sheetNames
+      .map((name) => `ranges=${encodeURIComponent(name)}`)
+      .join("&");
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SPREADSHEET_ID}/values:batchGet?${params}`;
+
+    let res = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (res.status === 401) {
+      accessToken = null;
+      const freshToken = await ensureSignedIn();
+      res = await fetch(url, {
+        headers: { Authorization: `Bearer ${freshToken}` },
+      });
+    }
+
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`スプレッドシートの読み取りに失敗しました (${res.status}): ${body}`);
+    }
+
+    const data = await res.json();
+    // Map sheet name -> 2D values array (missing/empty ranges come back without `values`).
+    const result = {};
+    (data.valueRanges || []).forEach((vr, i) => {
+      result[sheetNames[i]] = vr.values || [];
+    });
+    return result;
+  }
+
   function isSignedIn() {
     return isTokenValid();
   }
 
-  return { init, signIn, ensureSignedIn, appendRow, isSignedIn };
+  return { init, signIn, ensureSignedIn, appendRow, batchGetValues, isSignedIn };
 })();
