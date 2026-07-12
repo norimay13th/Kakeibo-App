@@ -103,6 +103,10 @@
     return label.replace(/^\d+年/, "");
   }
 
+  function setStat(id, value) {
+    el(id).textContent = yen(value);
+  }
+
   function renderAll() {
     const year = Number(yearSelect.value);
     if (!year) return;
@@ -115,11 +119,16 @@
     heroEl.classList.toggle("positive", netWorth.netWorth > 0);
     heroEl.classList.toggle("negative", netWorth.netWorth < 0);
 
-    renderAreaChart("income", series, "income");
-    renderAreaChart("expense", series, "expense");
-    renderAreaChart("savings", series, "savings");
-    renderAreaChart("liabilities", series, "liabilities");
-    renderAreaChart("assets", series, "assets");
+    setStat("stat-assets", netWorth.assetsTotal);
+    setStat("stat-liabilities", netWorth.liabilitiesTotal);
+
+    renderAreaChart("assets", series, "assets", "資産額");
+    renderAreaChart("stock", series, "stock", "株式");
+    renderAreaChart("cash", series, "cash", "現金");
+    renderAreaChart("liabilities", series, "liabilities", "負債額");
+    renderAreaChart("income", series, "income", "収入金額");
+    renderAreaChart("expense", series, "expense", "支出金額");
+    renderAreaChart("savings", series, "savings", "貯金額");
     renderAllocationChart(year);
   }
 
@@ -130,8 +139,10 @@
     }
   }
 
-  function renderAreaChart(key, series, field) {
+  function renderAreaChart(key, series, field, label) {
     destroyChart(key);
+    const latest = series[series.length - 1][field];
+    el(`title-${key}`).textContent = `${label}：${yen(latest)}`;
     charts[key] = new Chart(el(`chart-${key}`), {
       type: "line",
       data: {
@@ -149,33 +160,37 @@
     });
   }
 
-  function textColor() {
-    return getComputedStyle(document.documentElement).getPropertyValue("--text").trim() || "#000";
-  }
+  const ASSET_COLOR_MAP = { 現金: "#007AFF", 株式: "#FF3B30" };
 
   function renderAllocationChart(year) {
     const allocation = Aggregate.assetAllocationAsOf(dataset.assets, `${year}年12月`);
-    const labels = ["現金", "株式"];
-    const values = [allocation.cash, allocation.stock];
-    const colors = ["#007AFF", "#FF3B30"];
+    const entries = Object.entries({ 現金: allocation.cash, 株式: allocation.stock })
+      .filter(([, value]) => value > 0)
+      .sort((a, b) => b[1] - a[1]);
+    const labels = entries.map(([label]) => label);
+    const values = entries.map(([, value]) => value);
+    const colors = labels.map((label) => ASSET_COLOR_MAP[label] || "#8E8E93");
     const total = values.reduce((t, v) => t + v, 0);
 
     destroyChart("allocation");
     charts.allocation = new Chart(el("chart-allocation"), {
-      type: "doughnut",
+      type: "pie",
       data: { labels, datasets: [{ data: values, backgroundColor: colors }] },
       plugins: [SliceLabels],
       options: {
         maintainAspectRatio: false,
-        cutout: "65%",
         layout: { padding: 16 },
         plugins: {
           legend: { display: false },
-          tooltip: { enabled: false },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => {
+                const pct = total ? Math.round((ctx.parsed / total) * 100) : 0;
+                return ` ${ctx.label}: ${yen(ctx.parsed)} (${pct}%)`;
+              },
+            },
+          },
           sliceLabels: {
-            centerValueColor: textColor(),
-            centerLabel: "総資産",
-            centerValue: yen(total),
             formatter: (value, ctx, grandTotal) => {
               const label = labels[ctx.dataIndex];
               const pct = grandTotal ? Math.round((value / grandTotal) * 100) : 0;
@@ -185,7 +200,41 @@
         },
       },
     });
+
+    renderAllocationLegend(labels, values, colors, total);
   }
+
+  function renderAllocationLegend(labels, values, colors, total) {
+    const legend = el("allocation-legend");
+    const rows = labels
+      .map((label, i) => {
+        const pct = total ? Math.round((values[i] / total) * 100) : 0;
+        return `<li><span class="dot" style="background:${colors[i]}"></span><span class="name">${label}</span><span class="amount">${yen(values[i])}</span><span class="pct">${pct}%</span></li>`;
+      })
+      .join("");
+    legend.innerHTML = `${rows}<li class="total"><span class="dot"></span><span class="name">合計</span><span class="amount">${yen(total)}</span><span class="pct"></span></li>`;
+  }
+
+  function openDetailModal(kind) {
+    const year = Number(yearSelect.value);
+    if (!year || !dataset) return;
+    const month = `${year}年12月`;
+
+    if (kind === "assets") {
+      const { cash, stock } = Aggregate.assetItemsAsOf(dataset.assets, month);
+      DetailModal.open(
+        "資産額の内訳",
+        DetailModal.renderSection("現金", cash, DetailModal.sumAmounts(cash)) +
+          DetailModal.renderSection("株式", stock, DetailModal.sumAmounts(stock)) +
+          DetailModal.renderGrandTotal(DetailModal.sumAmounts(cash) + DetailModal.sumAmounts(stock))
+      );
+    } else if (kind === "liabilities") {
+      const { loans, debts } = Aggregate.liabilityItemsAsOf(dataset.loans, dataset.debts, month);
+      DetailModal.open("負債額の内訳", DetailModal.renderLiabilitySections(loans.items, debts.items));
+    }
+  }
+
+  DetailModal.wireCards(openDetailModal);
 
   yearSelect.addEventListener("change", renderAll);
 

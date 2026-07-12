@@ -64,11 +64,13 @@
     return byCategory;
   }
 
-  // 8-slice breakdown for the monthly pie chart: 6 fixed categories + 固定費 + 借金・ローン返済.
+  // 8-slice breakdown for the monthly pie chart: 6 fixed categories + 固定費 + 負債返済額.
+  // Uses the same 負債返済額 label as monthlyCategoryTotals so a category keeps one
+  // identity (and one color) across every chart/table that shows it.
   function monthlyExpenseBreakdown({ kakeibo, fixedCosts, loans, debts }, month) {
     const breakdown = monthlyExpenseByCategory(kakeibo, month);
     breakdown["固定費"] = sumBy(fixedCosts, month, "amount");
-    breakdown["借金・ローン返済"] = sumBy(loans, month, "payment") + sumBy(debts, month, "payment");
+    breakdown["負債返済額"] = sumBy(loans, month, "payment") + sumBy(debts, month, "payment");
     return breakdown;
   }
 
@@ -118,16 +120,23 @@
 
   // Itemized ローン/借金 entries as of `month`, including outstanding balance
   // alongside the payment amount. Each sheet's carry-forward month is resolved
-  // independently, matching how netWorthAsOf totals them.
+  // independently, matching how netWorthAsOf totals them. ローン entries additionally
+  // carry installmentRemaining/installmentTotal (借金 has no installment concept).
   function liabilityItemsAsOf(loans, debts, month) {
-    const itemsAsOf = (entries) => {
+    const carryAndSort = (entries, extra) => {
       const carried = carryForwardSum(entries, month, "payment");
       const items = (carried.month ? entries.filter((e) => e.month === carried.month) : [])
-        .map((e) => ({ name: e.name, payment: e.payment, balance: e.balance }))
+        .map((e) => ({ name: e.name, payment: e.payment, balance: e.balance, ...extra(e) }))
         .sort((a, b) => b.payment - a.payment);
       return { month: carried.month, items };
     };
-    return { loans: itemsAsOf(loans), debts: itemsAsOf(debts) };
+    return {
+      loans: carryAndSort(loans, (e) => ({
+        installmentTotal: e.installmentTotal,
+        installmentRemaining: e.installmentRemaining,
+      })),
+      debts: carryAndSort(debts, () => ({})),
+    };
   }
 
   // "3日" -> 3.
@@ -157,6 +166,22 @@
     const current = kakeiboTotalAsOfDay(kakeiboEntries, month, asOfDay);
     const previous = kakeiboTotalAsOfDay(kakeiboEntries, prevMonth, asOfDay);
     return { month, prevMonth, asOfDay, current, previous, diff: current - previous };
+  }
+
+  // Finds the single category (of the 8-row monthlyCategoryTotals breakdown) with the
+  // largest swing vs last month, for a "先月より食費が多いですね" style callout. Returns
+  // null when there's no previous month, or the biggest swing is too small to be worth
+  // mentioning (under ¥1,000).
+  function categoryStandout(dataset, month, prevMonth) {
+    if (!prevMonth) return null;
+    const current = monthlyCategoryTotals(dataset, month);
+    const previous = monthlyCategoryTotals(dataset, prevMonth);
+    let best = null;
+    current.forEach(({ label, amount }, i) => {
+      const diff = amount - previous[i].amount;
+      if (!best || Math.abs(diff) > Math.abs(best.diff)) best = { label, diff };
+    });
+    return best && Math.abs(best.diff) >= 1000 ? best : null;
   }
 
   function monthlySavings({ income, kakeibo, fixedCosts, loans, debts }, month) {
@@ -208,6 +233,7 @@
     return yearlyMonths(year).map((month) => {
       const savings = monthlySavings(dataset, month);
       const netWorth = netWorthAsOf(dataset, month);
+      const allocation = assetAllocationAsOf(dataset.assets, month);
       return {
         month,
         income: savings.incomeTotal,
@@ -215,6 +241,8 @@
         savings: savings.savings,
         liabilities: netWorth.liabilitiesTotal,
         assets: netWorth.assetsTotal,
+        cash: allocation.cash,
+        stock: allocation.stock,
       };
     });
   }
@@ -236,6 +264,7 @@
     dayNumber,
     kakeiboTotalAsOfDay,
     spendingPaceInsight,
+    categoryStandout,
     monthlySavings,
     netWorthAsOf,
     assetAllocationAsOf,

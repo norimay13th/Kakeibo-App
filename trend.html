@@ -15,7 +15,7 @@
 <body>
 
 <header>
-  <h1>資産推移</h1>
+  <h1>Kakeibo-App</h1>
   <nav class="segmented">
     <a href="index.html">家計簿</a>
     <a href="trend.html" class="active">資産推移</a>
@@ -32,47 +32,82 @@
     <div class="value" id="hero-networth">—</div>
   </div>
 
+  <div class="stat-grid">
+    <div class="stat-card" data-detail="assets" role="button" tabindex="0">
+      <div class="label">資産額</div>
+      <div class="value" id="stat-assets">—</div>
+    </div>
+    <div class="stat-card" data-detail="liabilities" role="button" tabindex="0">
+      <div class="label">負債額</div>
+      <div class="value" id="stat-liabilities">—</div>
+    </div>
+  </div>
+
   <div class="chart-card">
     <h2>保有資産割合</h2>
     <div class="chart-wrap chart-wrap--donut">
       <canvas id="chart-allocation"></canvas>
     </div>
+    <ul class="legend-list" id="allocation-legend"></ul>
   </div>
 
   <div class="chart-card">
-    <h2>収入金額</h2>
+    <h2 id="title-assets">資産額</h2>
     <div class="chart-wrap">
-      <canvas id="chart-income"></canvas>
+      <canvas id="chart-assets"></canvas>
     </div>
   </div>
   <div class="chart-card">
-    <h2>支出金額</h2>
+    <h2 id="title-stock">株式</h2>
     <div class="chart-wrap">
-      <canvas id="chart-expense"></canvas>
+      <canvas id="chart-stock"></canvas>
     </div>
   </div>
   <div class="chart-card">
-    <h2>貯金額</h2>
+    <h2 id="title-cash">現金</h2>
     <div class="chart-wrap">
-      <canvas id="chart-savings"></canvas>
+      <canvas id="chart-cash"></canvas>
     </div>
   </div>
   <div class="chart-card">
-    <h2>負債額</h2>
+    <h2 id="title-liabilities">負債額</h2>
     <div class="chart-wrap">
       <canvas id="chart-liabilities"></canvas>
     </div>
   </div>
   <div class="chart-card">
-    <h2>資産額</h2>
+    <h2 id="title-income">収入金額</h2>
     <div class="chart-wrap">
-      <canvas id="chart-assets"></canvas>
+      <canvas id="chart-income"></canvas>
+    </div>
+  </div>
+  <div class="chart-card">
+    <h2 id="title-expense">支出金額</h2>
+    <div class="chart-wrap">
+      <canvas id="chart-expense"></canvas>
+    </div>
+  </div>
+  <div class="chart-card">
+    <h2 id="title-savings">貯金額</h2>
+    <div class="chart-wrap">
+      <canvas id="chart-savings"></canvas>
     </div>
   </div>
 </main>
 
+<div id="detail-modal" class="modal-backdrop">
+  <div class="modal-sheet" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-header">
+      <h2 id="modal-title"></h2>
+      <button id="modal-close" type="button" aria-label="閉じる">&times;</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <script src="slice-labels.js"></script>
+<script src="modal.js"></script>
 <script src="config.js"></script>
 <script src="sheets.js"></script>
 <script src="parser.js"></script>

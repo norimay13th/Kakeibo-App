@@ -50,6 +50,7 @@ header h1 {
   font-weight: 700;
   margin: 0 0 14px;
   letter-spacing: -0.02em;
+  text-align: center;
 }
 
 .segmented {
@@ -199,6 +200,11 @@ select.picker {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
+.legend-list li.total {
+  border-top: 1px solid var(--text-tertiary);
+  font-weight: 700;
+}
+.legend-list li.total .name { color: var(--text); }
 
 table.compare {
   width: 100%;
@@ -303,6 +309,27 @@ table.detail-table tr.total td {
   font-weight: 700;
   color: var(--text);
   border-top: 1px solid var(--text-tertiary);
+}
+
+/* Wraps a detail-table that can run wider than the modal (e.g. ローン's
+   引き落とし/残高/残回数 columns): the item-name column stays pinned on the left
+   while the rest of the table scrolls horizontally underneath it. */
+.table-scroll {
+  overflow-x: auto;
+  margin: 0 -4px;
+  padding: 0 4px;
+}
+.table-scroll table.detail-table th,
+.table-scroll table.detail-table td {
+  white-space: nowrap;
+  padding-left: 10px;
+}
+.table-scroll table.detail-table th:first-child,
+.table-scroll table.detail-table td:first-child {
+  position: sticky;
+  left: 0;
+  padding-left: 0;
+  background: var(--card);
 }
 
 .insight-banner {

@@ -151,6 +151,8 @@
             name: col0,
             balance: balance || 0,
             payment: payment || 0,
+            installmentTotal: toNumber(row[3]) || 0,
+            installmentRemaining: toNumber(row[5]) || 0,
           });
         }
       }

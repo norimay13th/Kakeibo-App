@@ -117,7 +117,9 @@
     renderWarnings(month);
     renderPaceInsight(month);
     renderCategoryChart(month);
-    renderCategoryCompareTable(month);
+    const comparisonRows = categoryComparisonRows(month);
+    renderCategoryCompareChart(comparisonRows);
+    renderCategoryCompareTable(comparisonRows);
     renderCompareTable(month, savings, netWorth);
   }
 
@@ -143,6 +145,13 @@
     } else {
       sentence = `${dayLabel}時点と比べて支出が${yen(diff)}多く、ペースが早めです。`;
     }
+
+    const standout = Aggregate.categoryStandout(dataset, month, prevMonth);
+    if (standout) {
+      const verb = standout.diff > 0 ? "多い" : "少ない";
+      sentence += ` 先月より${standout.label}が${yen(Math.abs(standout.diff))}${verb}ですね。`;
+    }
+
     banner.textContent = sentence;
     banner.classList.add("active");
   }
@@ -173,30 +182,35 @@
     }
   }
 
-  function textColor() {
-    return getComputedStyle(document.documentElement).getPropertyValue("--text").trim() || "#000";
+  // Fixed name -> color mapping so a category keeps the same color everywhere (pie slice,
+  // legend dot, bar chart) regardless of sort order, which changes month to month.
+  const CATEGORY_COLOR_MAP = {
+    固定費: "#8E8E93",
+    負債返済額: "#AF52DE",
+    食費: "#FFCC00",
+    雑費: "#FF9500",
+    生活費: "#34C759",
+    娯楽費: "#FF3B30",
+    自己投資: "#5AC8FA",
+    医療費: "#007AFF",
+  };
+  function categoryColor(label) {
+    return CATEGORY_COLOR_MAP[label] || "#8E8E93";
   }
-
-  function separatorColor() {
-    return getComputedStyle(document.documentElement).getPropertyValue("--text-tertiary").trim() || "#999";
-  }
-
-  // Fixed palette so each category keeps the same color across the donut slices and the
-  // legend list below it (Chart.js's own auto-assigned colors aren't known until after
-  // the chart renders, which is too late to also color the legend markers up front).
-  const CATEGORY_COLORS = ["#007AFF", "#FF3B30", "#FF9500", "#FFCC00", "#34C759", "#5AC8FA", "#AF52DE", "#8E8E93"];
 
   function renderCategoryChart(month) {
     const breakdown = Aggregate.monthlyExpenseBreakdown(dataset, month);
-    const entries = Object.entries(breakdown).filter(([, value]) => value > 0);
+    const entries = Object.entries(breakdown)
+      .filter(([, value]) => value > 0)
+      .sort((a, b) => b[1] - a[1]);
     const labels = entries.map(([label]) => label);
     const values = entries.map(([, value]) => value);
-    const colors = labels.map((_, i) => CATEGORY_COLORS[i % CATEGORY_COLORS.length]);
+    const colors = labels.map(categoryColor);
     const total = values.reduce((t, v) => t + v, 0);
 
     destroyChart("category");
     charts.category = new Chart(el("chart-category"), {
-      type: "doughnut",
+      type: "pie",
       data: { labels, datasets: [{ data: values, backgroundColor: colors }] },
       plugins: [SliceLabels],
       options: {
@@ -224,24 +238,37 @@
 
   function renderCategoryLegend(labels, values, colors, total) {
     const legend = el("category-legend");
-    legend.innerHTML = labels
+    const rows = labels
       .map((label, i) => {
         const pct = Math.round((values[i] / total) * 100);
         return `<li><span class="dot" style="background:${colors[i]}"></span><span class="name">${label}</span><span class="amount">${yen(values[i])}</span><span class="pct">${pct}%</span></li>`;
       })
       .join("");
+    legend.innerHTML = `${rows}<li class="total"><span class="dot"></span><span class="name">合計</span><span class="amount">${yen(total)}</span><span class="pct"></span></li>`;
   }
 
-  function renderCategoryCompareTable(month) {
+  // Rows for both the カテゴリー別 先月比較 table and its bar chart, sorted by this
+  // month's amount descending (largest category first).
+  function categoryComparisonRows(month) {
     const months = Aggregate.distinctMonths(dataset.kakeibo);
     const prevMonth = Aggregate.previousMonth(months, month);
     const current = Aggregate.monthlyCategoryTotals(dataset, month);
     const previous = prevMonth ? Aggregate.monthlyCategoryTotals(dataset, prevMonth) : null;
+    const prevByLabel = new Map((previous || []).map((r) => [r.label, r.amount]));
 
+    return current
+      .map(({ label, amount }) => ({
+        label,
+        amount,
+        prevAmount: previous ? prevByLabel.get(label) ?? 0 : null,
+      }))
+      .sort((a, b) => b.amount - a.amount);
+  }
+
+  function renderCategoryCompareTable(rows) {
     const tbody = document.querySelector("#category-compare-table tbody");
-    tbody.innerHTML = current
-      .map(({ label, amount }, i) => {
-        const prevAmount = previous ? previous[i].amount : null;
+    tbody.innerHTML = rows
+      .map(({ label, amount, prevAmount }) => {
         const prevText = prevAmount == null ? "—" : yen(prevAmount);
         const diff = prevAmount == null ? null : amount - prevAmount;
         const diffText = diff == null ? "—" : `${diff >= 0 ? "+" : ""}${yen(diff)}`;
@@ -250,6 +277,36 @@
         return `<tr><td>${label}</td><td>${yen(amount)}</td><td>${prevText}</td><td class="${diffClass}">${diffText}</td></tr>`;
       })
       .join("");
+  }
+
+  function withAlpha(hex, alpha) {
+    const n = hex.replace("#", "");
+    const r = parseInt(n.slice(0, 2), 16);
+    const g = parseInt(n.slice(2, 4), 16);
+    const b = parseInt(n.slice(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+
+  function renderCategoryCompareChart(rows) {
+    const colors = rows.map((r) => categoryColor(r.label));
+    destroyChart("categoryCompare");
+    charts.categoryCompare = new Chart(el("chart-category-compare"), {
+      type: "bar",
+      data: {
+        labels: rows.map((r) => r.label),
+        datasets: [
+          { label: "今月", data: rows.map((r) => r.amount), backgroundColor: colors },
+          { label: "先月", data: rows.map((r) => r.prevAmount), backgroundColor: colors.map((c) => withAlpha(c, 0.35)) },
+        ],
+      },
+      options: {
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: true, position: "bottom", labels: { boxWidth: 10, font: { size: 12 } } },
+          tooltip: { callbacks: { label: (ctx) => ` ${ctx.dataset.label}: ${yen(ctx.parsed.y)}` } },
+        },
+      },
+    });
   }
 
   function renderCompareTable(month, savings, netWorth) {
@@ -281,111 +338,31 @@
       .join("");
   }
 
-  const detailModal = el("detail-modal");
-  const modalTitle = el("modal-title");
-  const modalBody = el("modal-body");
-
-  function renderDetailTable(rows, total) {
-    if (!rows.length) {
-      return `<table class="detail-table"><tbody><tr><td colspan="2">データがありません</td></tr></tbody></table>`;
-    }
-    const body = rows.map((r) => `<tr><td>${r.name}</td><td>${yen(r.amount)}</td></tr>`).join("");
-    const totalRow = total != null ? `<tr class="total"><td>合計</td><td>${yen(total)}</td></tr>` : "";
-    return `<table class="detail-table"><tbody>${body}${totalRow}</tbody></table>`;
-  }
-
-  function renderSection(heading, rows, total) {
-    return `<div class="modal-section">${heading ? `<h3>${heading}</h3>` : ""}${renderDetailTable(rows, total)}</div>`;
-  }
-
-  function renderGrandTotal(amount, label = "合計") {
-    return `<div class="modal-section"><table class="detail-table"><tbody><tr class="total"><td>${label}</td><td>${yen(amount)}</td></tr></tbody></table></div>`;
-  }
-
-  function sumAmounts(rows) {
-    return rows.reduce((t, r) => t + r.amount, 0);
-  }
-
-  // ローン/借金 items with both the payment amount and outstanding balance.
-  function renderLiabilityTable(heading, amountLabel, balanceLabel, items) {
-    const heading_ = heading ? `<h3>${heading}</h3>` : "";
-    if (!items.length) {
-      return `<div class="modal-section">${heading_}<table class="detail-table"><tbody><tr><td colspan="3">データがありません</td></tr></tbody></table></div>`;
-    }
-    const body = items
-      .map((i) => `<tr><td>${i.name}</td><td>${yen(i.payment)}</td><td>${yen(i.balance)}</td></tr>`)
-      .join("");
-    const paymentTotal = items.reduce((t, i) => t + i.payment, 0);
-    const balanceTotal = items.reduce((t, i) => t + i.balance, 0);
-    const totalRow = `<tr class="total"><td>合計</td><td>${yen(paymentTotal)}</td><td>${yen(balanceTotal)}</td></tr>`;
-    return `<div class="modal-section">${heading_}<table class="detail-table"><thead><tr><th>項目</th><th>${amountLabel}</th><th>${balanceLabel}</th></tr></thead><tbody>${body}${totalRow}</tbody></table></div>`;
-  }
-
-  function renderLiabilityGrandTotal(loanItems, debtItems) {
-    const paymentTotal = [...loanItems, ...debtItems].reduce((t, i) => t + i.payment, 0);
-    const balanceTotal = [...loanItems, ...debtItems].reduce((t, i) => t + i.balance, 0);
-    return `<div class="modal-section"><table class="detail-table"><thead><tr><th>合計</th><th>引き落とし・返済額</th><th>残高</th></tr></thead><tbody><tr class="total"><td></td><td>${yen(paymentTotal)}</td><td>${yen(balanceTotal)}</td></tr></tbody></table></div>`;
-  }
-
   function openDetailModal(kind) {
     const month = monthSelect.value;
     if (!month || !dataset) return;
 
-    let title = "";
-    let bodyHtml = "";
-
     if (kind === "income") {
-      title = "収入の内訳";
       const rows = Aggregate.incomeItems(dataset.income, month);
-      bodyHtml = renderSection(null, rows, sumAmounts(rows));
+      DetailModal.open("収入の内訳", DetailModal.renderSection(null, rows, DetailModal.sumAmounts(rows)));
     } else if (kind === "expense") {
-      title = "支出の内訳";
       const rows = Aggregate.monthlyCategoryTotals(dataset, month).map((r) => ({ name: r.label, amount: r.amount }));
-      bodyHtml = renderSection(null, rows, sumAmounts(rows));
+      DetailModal.open("支出の内訳", DetailModal.renderSection(null, rows, DetailModal.sumAmounts(rows)));
     } else if (kind === "assets") {
-      title = "資産額の内訳";
       const { cash, stock } = Aggregate.assetItemsAsOf(dataset.assets, month);
-      bodyHtml =
-        renderSection("現金", cash, sumAmounts(cash)) +
-        renderSection("株式", stock, sumAmounts(stock)) +
-        renderGrandTotal(sumAmounts(cash) + sumAmounts(stock));
+      DetailModal.open(
+        "資産額の内訳",
+        DetailModal.renderSection("現金", cash, DetailModal.sumAmounts(cash)) +
+          DetailModal.renderSection("株式", stock, DetailModal.sumAmounts(stock)) +
+          DetailModal.renderGrandTotal(DetailModal.sumAmounts(cash) + DetailModal.sumAmounts(stock))
+      );
     } else if (kind === "liabilities") {
-      title = "負債額の内訳";
       const { loans, debts } = Aggregate.liabilityItemsAsOf(dataset.loans, dataset.debts, month);
-      bodyHtml =
-        renderLiabilityTable("ローン", "引き落とし", "残高", loans.items) +
-        renderLiabilityTable("借金", "返済額", "残債務", debts.items) +
-        renderLiabilityGrandTotal(loans.items, debts.items);
-    } else {
-      return;
+      DetailModal.open("負債額の内訳", DetailModal.renderLiabilitySections(loans.items, debts.items));
     }
-
-    modalTitle.textContent = title;
-    modalBody.innerHTML = bodyHtml;
-    detailModal.classList.add("active");
   }
 
-  function closeDetailModal() {
-    detailModal.classList.remove("active");
-  }
-
-  document.querySelectorAll(".stat-card[data-detail]").forEach((card) => {
-    card.addEventListener("click", () => openDetailModal(card.dataset.detail));
-    card.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        openDetailModal(card.dataset.detail);
-      }
-    });
-  });
-
-  el("modal-close").addEventListener("click", closeDetailModal);
-  detailModal.addEventListener("click", (e) => {
-    if (e.target === detailModal) closeDetailModal();
-  });
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") closeDetailModal();
-  });
+  DetailModal.wireCards(openDetailModal);
 
   monthSelect.addEventListener("change", renderAll);
 

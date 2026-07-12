@@ -84,7 +84,18 @@ assertEqual(income, [
 // --- parseLoan ---
 const loans = Parser.parseLoan(fixtures.loanRows);
 assertEqual(loans.length, 3, "parseLoan entry count");
-assertEqual(loans[0], { month: "2026年7月", name: "iPhone15 36回分割 (28回目)", balance: 37144, payment: 4128 }, "parseLoan first entry");
+assertEqual(
+  loans[0],
+  {
+    month: "2026年7月",
+    name: "iPhone15 36回分割 (28回目)",
+    balance: 37144,
+    payment: 4128,
+    installmentTotal: 36,
+    installmentRemaining: 9,
+  },
+  "parseLoan first entry"
+);
 assertEqual(loans.reduce((t, e) => t + e.payment, 0), 21949, "loan payment total");
 
 // --- parseDebt ---
@@ -154,9 +165,9 @@ assertEqual(
     食費: 5620,
     生活費: 5710,
     固定費: 100632,
-    "借金・ローン返済": 38949,
+    負債返済額: 38949,
   },
-  "monthlyExpenseBreakdown adds 固定費 and 借金・ローン返済 to the 6 categories"
+  "monthlyExpenseBreakdown adds 固定費 and 負債返済額 to the 6 categories (same label as monthlyCategoryTotals)"
 );
 
 // --- aggregate: monthlyCategoryTotals (8-row category comparison table) ---
@@ -215,9 +226,9 @@ assertEqual(
     loans: {
       month: "2026年7月",
       items: [
-        { name: "Mac Book Pro M2PRO 32GB 1TB", payment: 12321, balance: 160181 },
-        { name: "LUMIX-S5IIX 契約日2024/3/25日", payment: 5500, balance: 187000 },
-        { name: "iPhone15 36回分割 (28回目)", payment: 4128, balance: 37144 },
+        { name: "Mac Book Pro M2PRO 32GB 1TB", payment: 12321, balance: 160181, installmentTotal: 18, installmentRemaining: 13 },
+        { name: "LUMIX-S5IIX 契約日2024/3/25日", payment: 5500, balance: 187000, installmentTotal: 60, installmentRemaining: 34 },
+        { name: "iPhone15 36回分割 (28回目)", payment: 4128, balance: 37144, installmentTotal: 36, installmentRemaining: 9 },
       ],
     },
     debts: {
@@ -281,18 +292,35 @@ const series2026 = Aggregate.yearlySeries(dataset, 2026);
 assertEqual(series2026.length, 12, "yearlySeries covers all 12 months");
 assertEqual(
   series2026.find((s) => s.month === "2026年6月"),
-  { month: "2026年6月", income: 425433, expense: 0, savings: 425433, liabilities: 0, assets: 0 },
+  { month: "2026年6月", income: 425433, expense: 0, savings: 425433, liabilities: 0, assets: 0, cash: 0, stock: 0 },
   "yearlySeries: June has income but no carried-forward balances yet (July is later)"
 );
 assertEqual(
   series2026.find((s) => s.month === "2026年7月"),
-  { month: "2026年7月", income: 0, expense: 170751, savings: -170751, liabilities: 931442, assets: 561239 },
+  { month: "2026年7月", income: 0, expense: 170751, savings: -170751, liabilities: 931442, assets: 561239, cash: 391802, stock: 169437 },
   "yearlySeries: July has expenses and its own balances"
 );
 assertEqual(
   series2026.find((s) => s.month === "2026年8月"),
-  { month: "2026年8月", income: 0, expense: 0, savings: 0, liabilities: 931442, assets: 561239 },
+  { month: "2026年8月", income: 0, expense: 0, savings: 0, liabilities: 931442, assets: 561239, cash: 391802, stock: 169437 },
   "yearlySeries: August carries July's balances forward with no new flow"
+);
+
+// --- aggregate: categoryStandout ---
+assertEqual(
+  Aggregate.categoryStandout(dataset, "2026年7月", null),
+  null,
+  "categoryStandout is null with no previous month"
+);
+assertEqual(
+  Aggregate.categoryStandout(dataset, "2026年7月", "2026年6月"),
+  { label: "固定費", diff: 100632 },
+  "categoryStandout picks the category with the largest swing vs last month (固定費 has no June data, so it's the whole ¥100,632)"
+);
+assertEqual(
+  Aggregate.categoryStandout({ kakeibo, fixedCosts: [], loans: [], debts: [] }, "2026年7月", "2026年7月"),
+  null,
+  "categoryStandout returns null when the biggest swing is under the ¥1,000 threshold (identical month vs itself)"
 );
 
 // --- aggregate: month sorting ---
