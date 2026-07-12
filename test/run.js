@@ -381,23 +381,51 @@ const series2026 = Aggregate.yearlySeries(dataset, 2026);
 assertEqual(series2026.length, 12, "yearlySeries covers all 12 months");
 assertEqual(
   series2026.find((s) => s.month === "2026年1月"),
-  { month: "2026年1月", income: null, expense: null, savings: null, netWorth: 0, liabilities: 0, assets: 0, cash: 0, stock: 0 },
-  "yearlySeries: a month with no data anywhere (past or future) is null income/expense/savings"
+  {
+    month: "2026年1月",
+    income: null, expense: null, savings: null,
+    netWorth: null, netWorthAsOfMonth: null,
+    liabilities: null, liabilitiesAsOfMonth: null,
+    assets: null, assetsAsOfMonth: null,
+    cash: null, stock: null,
+  },
+  "yearlySeries: a month before any data exists anywhere is null across the board (flow AND snapshot fields), not a confident ¥0"
 );
 assertEqual(
   series2026.find((s) => s.month === "2026年6月"),
-  { month: "2026年6月", income: 425433, expense: 0, savings: 425433, netWorth: 0, liabilities: 0, assets: 0, cash: 0, stock: 0 },
-  "yearlySeries: June has a 収入 entry so income/expense/savings are real (not null), but no carried-forward balances yet (July is later)"
+  {
+    month: "2026年6月",
+    income: 425433, expense: 0, savings: 425433,
+    netWorth: null, netWorthAsOfMonth: null,
+    liabilities: null, liabilitiesAsOfMonth: null,
+    assets: null, assetsAsOfMonth: null,
+    cash: null, stock: null,
+  },
+  "yearlySeries: June has a 収入 entry so income/expense/savings are real, but 資産/負債 fixtures only start in July so those stay null (nothing to carry forward from yet)"
 );
 assertEqual(
   series2026.find((s) => s.month === "2026年7月"),
-  { month: "2026年7月", income: 0, expense: 170751, savings: -170751, netWorth: -370203, liabilities: 931442, assets: 561239, cash: 391802, stock: 169437 },
-  "yearlySeries: July reports its own actual expenses and balances, plus the new netWorth field"
+  {
+    month: "2026年7月",
+    income: 0, expense: 170751, savings: -170751,
+    netWorth: -370203, netWorthAsOfMonth: "2026年7月",
+    liabilities: 931442, liabilitiesAsOfMonth: "2026年7月",
+    assets: 561239, assetsAsOfMonth: "2026年7月",
+    cash: 391802, stock: 169437,
+  },
+  "yearlySeries: July is recorded this exact month, so every snapshot field's asOfMonth equals July itself (confirmed, not carried forward)"
 );
 assertEqual(
   series2026.find((s) => s.month === "2026年8月"),
-  { month: "2026年8月", income: null, expense: null, savings: null, netWorth: -370203, liabilities: 931442, assets: 561239, cash: 391802, stock: 169437 },
-  "yearlySeries: August has no entry anywhere, so income/expense/savings are null while balances still carry July forward"
+  {
+    month: "2026年8月",
+    income: null, expense: null, savings: null,
+    netWorth: -370203, netWorthAsOfMonth: "2026年7月",
+    liabilities: 931442, liabilitiesAsOfMonth: "2026年7月",
+    assets: 561239, assetsAsOfMonth: "2026年7月",
+    cash: 391802, stock: 169437,
+  },
+  "yearlySeries: August has no entry anywhere, so flow fields are null, but snapshot fields carry July's values forward with asOfMonth still pointing at July (extrapolated, not confirmed)"
 );
 assertEqual(
   series2026.find((s) => s.month === "2026年12月").income,
@@ -413,7 +441,7 @@ assertEqual(incomeDiff[6], { month: "2026年7月", value: 0, diff: -425433 }, "s
 assertEqual(incomeDiff[7], { month: "2026年8月", value: null, diff: null }, "seriesWithDiff: no data this month -> null value, null diff even though previous month was real");
 
 const assetsDiff = Aggregate.seriesWithDiff(series2026, "assets");
-assertEqual(assetsDiff[6], { month: "2026年7月", value: 561239, diff: 561239 }, "seriesWithDiff on a snapshot field: July jumps from carried-forward 0 to 561239");
+assertEqual(assetsDiff[6], { month: "2026年7月", value: 561239, diff: null }, "seriesWithDiff on a snapshot field: July is the first real value (June was null, nothing to diff against yet)");
 assertEqual(assetsDiff[7], { month: "2026年8月", value: 561239, diff: 0 }, "seriesWithDiff on a snapshot field: August carries forward unchanged, diff 0 (not null, since both months resolve to real snapshot values)");
 
 // --- aggregate: categoryStandout ---

@@ -109,14 +109,6 @@
     el(id).textContent = yen(value);
   }
 
-  // Picks whichever month is chronologically later (for combining two independently
-  // carried-forward sources, e.g. ローン and 借金, into one "as of" reference).
-  function pickLaterMonth(a, b) {
-    if (a == null) return b;
-    if (b == null) return a;
-    return Aggregate.monthKey(a) >= Aggregate.monthKey(b) ? a : b;
-  }
-
   function renderAll() {
     const year = Number(yearSelect.value);
     if (!year) return;
@@ -134,36 +126,14 @@
     setStat("stat-assets", netWorth.assetsTotal);
     setStat("stat-liabilities", netWorth.liabilitiesTotal);
 
-    // snapshot "as of" resolution: 資産(現金/株式含む) and 負債(ローン+借金) each
-    // carry forward independently, so their most-recent-recorded month can differ.
-    const assetsCarry = Aggregate.carryForwardSum(dataset.assets, `${year}年12月`, "amount");
-    const allocation = Aggregate.assetAllocationAsOf(dataset.assets, `${year}年12月`);
-    const loansCarry = Aggregate.carryForwardSum(dataset.loans, `${year}年12月`, "balance");
-    const debtsCarry = Aggregate.carryForwardSum(dataset.debts, `${year}年12月`, "balance");
-    const liabilitiesMonth = pickLaterMonth(loansCarry.month, debtsCarry.month);
-    const liabilitiesTotal = loansCarry.total + debtsCarry.total;
-    const netWorthMonth = pickLaterMonth(assetsCarry.month, liabilitiesMonth);
-
-    renderAreaChart("networth", series, "netWorth", "純資産額", {
-      snapshot: true,
-      asOf: { month: netWorthMonth, total: assetsCarry.total - liabilitiesTotal },
-    });
-    renderAreaChart("assets", series, "assets", "資産額", {
-      snapshot: true,
-      asOf: { month: assetsCarry.month, total: assetsCarry.total },
-    });
-    renderAreaChart("stock", series, "stock", "株式", {
-      snapshot: true,
-      asOf: { month: assetsCarry.month, total: allocation.stock },
-    });
-    renderAreaChart("cash", series, "cash", "現金", {
-      snapshot: true,
-      asOf: { month: assetsCarry.month, total: allocation.cash },
-    });
-    renderAreaChart("liabilities", series, "liabilities", "負債額", {
-      snapshot: true,
-      asOf: { month: liabilitiesMonth, total: liabilitiesTotal },
-    });
+    // asOfField-bearing rows already carry their own "as of" resolution (see
+    // yearlySeries), so renderAreaChart can read title figures straight off the
+    // series instead of the caller re-deriving them via carryForwardSum.
+    renderAreaChart("networth", series, "netWorth", "純資産額", "netWorthAsOfMonth");
+    renderAreaChart("assets", series, "assets", "資産額", "assetsAsOfMonth");
+    renderAreaChart("stock", series, "stock", "株式", "assetsAsOfMonth");
+    renderAreaChart("cash", series, "cash", "現金", "assetsAsOfMonth");
+    renderAreaChart("liabilities", series, "liabilities", "負債額", "liabilitiesAsOfMonth");
     renderAreaChart("income", series, "income", "収入金額");
     renderAreaChart("expense", series, "expense", "支出金額");
     renderAreaChart("savings", series, "savings", "貯金額");
@@ -186,24 +156,60 @@
     return null;
   }
 
-  // snapshot charts (資産額/株式/現金/負債額/純資産額) show the latest carried-forward
-  // figure with its "as of" month (opts.asOf, computed by the caller via carryForwardSum
-  // since a snapshot value can resolve to an earlier month than "now"). flow charts
-  // (収入/支出/貯金額) show the year-to-date total instead, since summing a snapshot
-  // across months wouldn't mean anything.
-  function renderAreaChart(key, series, field, label, opts = {}) {
+  // Small repeating diagonal-stripe tile used as the area fill for "carried forward,
+  // not reconfirmed this month" segments (see renderAreaChart). Reads --text-tertiary
+  // so it automatically matches light/dark mode without a separate dark-mode branch.
+  function createHatchPattern(ctx) {
+    const size = 8;
+    const tile = document.createElement("canvas");
+    tile.width = size;
+    tile.height = size;
+    const tctx = tile.getContext("2d");
+    const stroke = getComputedStyle(document.body).getPropertyValue("--text-tertiary").trim() || "rgba(120,120,120,0.4)";
+    tctx.strokeStyle = stroke;
+    tctx.lineWidth = 2;
+    tctx.beginPath();
+    tctx.moveTo(0, size);
+    tctx.lineTo(size, 0);
+    tctx.moveTo(-size / 2, size / 2);
+    tctx.lineTo(size / 2, -size / 2);
+    tctx.moveTo(size / 2, size * 1.5);
+    tctx.lineTo(size * 1.5, size / 2);
+    tctx.stroke();
+    return ctx.createPattern(tile, "repeat");
+  }
+
+  // snapshot charts (資産額/株式/現金/負債額/純資産額) show the latest recorded figure
+  // with its "as of" month, read straight off the series' asOfField (see yearlySeries).
+  // Segments spanning a month that's only carried forward (not reconfirmed that month)
+  // are drawn dashed with a hatched fill, so "confirmed" and "assumed" are visually
+  // distinct instead of one confident solid line all the way across. flow charts
+  // (収入/支出/貯金額, no asOfField) show the year-to-date total instead, since summing
+  // a snapshot across months wouldn't mean anything, and have no carried-forward concept.
+  function renderAreaChart(key, series, field, label, asOfField) {
     destroyChart(key);
     let titleText;
-    if (opts.snapshot) {
-      const asOf = opts.asOf;
-      titleText = asOf.month == null ? `${label}：—` : `${label}：${yen(asOf.total)} (${asOf.month}時点)`;
+    if (asOfField) {
+      const last = series[series.length - 1];
+      const asOfMonth = last[asOfField];
+      titleText = asOfMonth == null ? `${label}：—` : `${label}：${yen(last[field])} (${asOfMonth}時点)`;
     } else {
       const latest = findLatest(series, field);
       const annualSum = series.reduce((t, s) => t + (s[field] || 0), 0);
       titleText = latest == null ? `${label}：—` : `${label}：${yen(annualSum)} (${latest.month}時点の合計)`;
     }
     el(`title-${key}`).textContent = titleText;
-    charts[key] = new Chart(el(`chart-${key}`), {
+
+    const isExtrapolated = (idx) => {
+      if (!asOfField) return false;
+      const row = series[idx];
+      return row[field] != null && row[asOfField] != null && row[asOfField] !== row.month;
+    };
+
+    const canvas = el(`chart-${key}`);
+    const hatchPattern = asOfField ? createHatchPattern(canvas.getContext("2d")) : null;
+
+    charts[key] = new Chart(canvas, {
       type: "line",
       data: {
         labels: series.map((s) => shortMonth(s.month)),
@@ -213,6 +219,12 @@
             fill: true,
             tension: 0.3,
             pointRadius: 2,
+            segment: asOfField
+              ? {
+                  borderDash: (ctx) => (isExtrapolated(ctx.p0DataIndex) || isExtrapolated(ctx.p1DataIndex) ? [6, 4] : undefined),
+                  backgroundColor: (ctx) => (isExtrapolated(ctx.p0DataIndex) || isExtrapolated(ctx.p1DataIndex) ? hatchPattern : undefined),
+                }
+              : undefined,
           },
         ],
       },

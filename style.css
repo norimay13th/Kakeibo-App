@@ -181,6 +181,15 @@ select.picker {
 .chart-row .chart-wrap:first-child { flex: 0 1 28%; }
 .chart-row .chart-wrap:last-child { flex: 1 1 auto; }
 
+/* 4 equal-width mini charts side by side (先月比較: 収入/支出/貯金額/純資産額),
+   each with its own auto-scaled axis. Overrides the 2-panel asymmetric sizing above. */
+.chart-row--quad .chart-wrap,
+.chart-row--quad .chart-wrap:first-child,
+.chart-row--quad .chart-wrap:last-child {
+  flex: 1 1 0;
+  height: 180px;
+}
+
 .legend-list {
   list-style: none;
   margin: 16px 0 0;

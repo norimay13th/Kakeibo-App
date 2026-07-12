@@ -1,4 +1,4 @@
-const CACHE_NAME = "kakeibo-shell-v16";
+const CACHE_NAME = "kakeibo-shell-v17";
 const SHELL_FILES = [
   "./",
   "./index.html",

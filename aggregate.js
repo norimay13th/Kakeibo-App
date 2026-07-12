@@ -281,27 +281,50 @@
     );
   }
 
+  // Picks whichever month is chronologically later (for combining two independently
+  // carried-forward sources, e.g. ローン and 借金, into one "as of" reference). null
+  // inputs are ignored.
+  function pickLaterMonth(a, b) {
+    if (a == null) return b;
+    if (b == null) return a;
+    return monthKey(a) >= monthKey(b) ? a : b;
+  }
+
   // One row per calendar month (Jan-Dec) of `year`, for the area-chart trend page.
-  // Months with no recorded flow entry get null income/expense/savings (rather than
-  // 0 from sumBy finding nothing) so the area chart leaves a gap instead of drawing a
-  // misleading ¥0; assets/liabilities/cash/stock are unaffected since carryForwardSum
-  // already handles "no entry yet" correctly.
+  // Months with no recorded flow entry get null income/expense/savings (rather than 0
+  // from sumBy finding nothing) so the area chart leaves a gap instead of drawing a
+  // misleading ¥0. 資産/負債系フィールド similarly go null before any data has ever
+  // been recorded, and additionally carry a "○○AsOfMonth" field so the trend page can
+  // tell a genuinely-recorded month apart from one that's just carrying an older
+  // snapshot forward (and style/gap those differently instead of drawing a confident
+  // solid line either way).
   function yearlySeries(dataset, year) {
     return yearlyMonths(year).map((month) => {
-      const netWorth = netWorthAsOf(dataset, month);
-      const allocation = assetAllocationAsOf(dataset.assets, month);
       const hasFlow = hasMonthData(dataset, month);
       const savings = hasFlow ? monthlySavings(dataset, month) : null;
+
+      const assetsCarry = carryForwardSum(dataset.assets, month, "amount");
+      const loansCarry = carryForwardSum(dataset.loans, month, "balance");
+      const debtsCarry = carryForwardSum(dataset.debts, month, "balance");
+      const allocation = assetAllocationAsOf(dataset.assets, month);
+
+      const assetsAsOfMonth = assetsCarry.month;
+      const liabilitiesAsOfMonth = pickLaterMonth(loansCarry.month, debtsCarry.month);
+      const netWorthAsOfMonth = pickLaterMonth(assetsAsOfMonth, liabilitiesAsOfMonth);
+
       return {
         month,
         income: hasFlow ? savings.incomeTotal : null,
         expense: hasFlow ? savings.totalOutflow : null,
         savings: hasFlow ? savings.savings : null,
-        netWorth: netWorth.netWorth,
-        liabilities: netWorth.liabilitiesTotal,
-        assets: netWorth.assetsTotal,
-        cash: allocation.cash,
-        stock: allocation.stock,
+        netWorth: netWorthAsOfMonth == null ? null : assetsCarry.total - (loansCarry.total + debtsCarry.total),
+        netWorthAsOfMonth,
+        liabilities: liabilitiesAsOfMonth == null ? null : loansCarry.total + debtsCarry.total,
+        liabilitiesAsOfMonth,
+        assets: assetsAsOfMonth == null ? null : assetsCarry.total,
+        assetsAsOfMonth,
+        cash: assetsAsOfMonth == null ? null : allocation.cash,
+        stock: assetsAsOfMonth == null ? null : allocation.stock,
       };
     });
   }

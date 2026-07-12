@@ -227,14 +227,7 @@
         layout: { padding: 16 },
         plugins: {
           legend: { display: false },
-          tooltip: {
-            callbacks: {
-              label: (ctx) => {
-                const pct = Math.round((ctx.parsed / total) * 100);
-                return ` ${ctx.label}: ${yen(ctx.parsed)} (${pct}%)`;
-              },
-            },
-          },
+          tooltip: { enabled: false },
           sliceLabels: {
             formatter: (_value, ctx) => [ctx.chart.data.labels[ctx.dataIndex]],
           },
@@ -388,21 +381,31 @@
     document.querySelector("#headline-compare-table tbody").innerHTML = compareRowsHtml(headlineRows);
     document.querySelector("#other-compare-table tbody").innerHTML = compareRowsHtml(otherRows);
 
-    destroyChart("headlineCompare");
-    charts.headlineCompare = new Chart(el("chart-headline-compare"), {
+    const headlineKeys = ["headline-income", "headline-expense", "headline-savings", "headline-networth"];
+    headlineRows.forEach(([label, cur, prev], i) => {
+      renderSingleCompareChart(headlineKeys[i], label, cur, prev, "#007AFF");
+    });
+  }
+
+  // A single-metric 今月/先月 bar chart with its own auto-scaled axis (used for each
+  // of the 4 independent 先月比較 mini charts, mirroring renderVariableTotalCompareChart's
+  // one-label pattern).
+  function renderSingleCompareChart(key, label, current, previous, color) {
+    destroyChart(key);
+    charts[key] = new Chart(el(`chart-${key}`), {
       type: "bar",
       data: {
-        labels: headlineRows.map(([label]) => label),
+        labels: [label],
         datasets: [
-          { label: "今月", data: headlineRows.map(([, cur]) => cur), backgroundColor: "#007AFF" },
-          { label: "先月", data: headlineRows.map(([, , prev]) => prev), backgroundColor: withAlpha("#007AFF", 0.35) },
+          { label: "今月", data: [current], backgroundColor: color },
+          { label: "先月", data: [previous], backgroundColor: withAlpha(color, 0.35) },
         ],
       },
       options: {
         maintainAspectRatio: false,
         plugins: {
           legend: { display: true, position: "bottom", labels: { boxWidth: 10, font: { size: 12 } } },
-          tooltip: { callbacks: { label: (ctx) => ` ${ctx.dataset.label}: ${yen(ctx.parsed.y)}` } },
+          tooltip: { enabled: false },
         },
       },
     });
