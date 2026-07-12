@@ -43,7 +43,7 @@ body {
 }
 
 header {
-  padding: 24px 20px 12px;
+  padding: calc(env(safe-area-inset-top, 0px) + 16px) 20px 12px;
 }
 header h1 {
   font-size: 28px;
@@ -172,6 +172,15 @@ select.picker {
 .chart-wrap canvas { max-height: 100%; }
 .chart-wrap--donut { height: 480px; }
 
+.chart-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.chart-row .chart-wrap { height: 220px; min-width: 0; }
+.chart-row .chart-wrap:first-child { flex: 0 1 28%; }
+.chart-row .chart-wrap:last-child { flex: 1 1 auto; }
+
 .legend-list {
   list-style: none;
   margin: 16px 0 0;
@@ -228,6 +237,45 @@ table.compare td {
 table.compare td:first-child { text-align: left; color: var(--text-secondary); }
 table.compare td.positive { color: var(--positive); }
 table.compare td.negative { color: var(--negative); }
+
+/* 変動支出詳細: day-grouped list (カテゴリー/用途/金額), a day-heading row breaks up
+   the table instead of repeating the day on every row. */
+table.itemized {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+table.itemized th {
+  text-align: left;
+  font-weight: 500;
+  color: var(--text-secondary);
+  font-size: 12px;
+  padding: 0 0 8px;
+}
+table.itemized th:last-child { text-align: right; }
+table.itemized td {
+  padding: 8px 0;
+  border-top: 1px solid var(--separator);
+  font-variant-numeric: tabular-nums;
+}
+table.itemized td:last-child { text-align: right; }
+table.itemized tr.day-heading td {
+  padding: 14px 0 4px;
+  border-top: none;
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: rgba(118, 118, 128, 0.08);
+}
+table.itemized tr.day-heading:first-child td { padding-top: 8px; }
+@media (prefers-color-scheme: dark) {
+  table.itemized tr.day-heading td { background: rgba(118, 118, 128, 0.16); }
+}
+table.itemized tr.total td {
+  font-weight: 700;
+  color: var(--text);
+  border-top: 1px solid var(--text-tertiary);
+}
 
 .stat-card[data-detail] { cursor: pointer; }
 .stat-card[data-detail]:active { opacity: 0.7; }

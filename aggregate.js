@@ -97,9 +97,43 @@
     return EXPENSE_CATEGORY_ORDER.map((label) => ({ label, amount: values[label] || 0 }));
   }
 
+  // Splits monthlyCategoryTotals' 8 rows into the 3 figures the expense-detail modal
+  // and the 先月比較 table need: 固定費, 負債返済額(ローン+借金), and 変動支出 (the
+  // remaining 6 家計簿 categories summed into one figure).
+  function expenseSummary(dataset, month) {
+    const rows = monthlyCategoryTotals(dataset, month);
+    const byLabel = new Map(rows.map((r) => [r.label, r.amount]));
+    const variableExpense = rows
+      .filter((r) => r.label !== "固定費" && r.label !== "負債返済額")
+      .reduce((total, r) => total + r.amount, 0);
+    return {
+      fixedCost: byLabel.get("固定費") || 0,
+      debtPayment: byLabel.get("負債返済額") || 0,
+      variableExpense,
+    };
+  }
+
+  const VARIABLE_CATEGORY_ORDER = EXPENSE_CATEGORY_ORDER.slice(2);
+
+  // 6-row 家計簿(変動支出) category breakdown only (no 固定費/負債返済額), for the
+  // 変動支出 bar chart and its comparison table now that those two moved to the flat
+  // 先月比較 table.
+  function monthlyVariableCategoryTotals(kakeiboEntries, month) {
+    const byCategory = monthlyExpenseByCategory(kakeiboEntries, month);
+    return VARIABLE_CATEGORY_ORDER.map((label) => ({ label, amount: byCategory[label] || 0 }));
+  }
+
   // Itemized 収入 entries for the exact month (income is a flow, not a snapshot to carry forward).
   function incomeItems(income, month) {
     return income
+      .filter((e) => e.month === month)
+      .map((e) => ({ name: e.name, amount: e.amount }))
+      .sort((a, b) => b.amount - a.amount);
+  }
+
+  // Itemized 固定費 entries for the exact month (same shape/sort as incomeItems).
+  function fixedCostItems(fixedCosts, month) {
+    return fixedCosts
       .filter((e) => e.month === month)
       .map((e) => ({ name: e.name, amount: e.amount }))
       .sort((a, b) => b.amount - a.amount);
@@ -143,6 +177,16 @@
   function dayNumber(dayLabel) {
     const m = /^(\d{1,2})日$/.exec(dayLabel || "");
     return m ? Number(m[1]) : null;
+  }
+
+  // Itemized 家計簿(変動支出) entries for the month, sorted by day ascending. Same-day
+  // entries keep their original sheet order (Array#sort is a stable sort in every
+  // modern engine). Used by the 変動支出詳細 table, grouped visually by day header rows.
+  function kakeiboItemsByDay(kakeiboEntries, month) {
+    return kakeiboEntries
+      .filter((e) => e.month === month)
+      .map((e) => ({ day: e.day, category: e.category, item: e.item, amount: e.amount }))
+      .sort((a, b) => (dayNumber(a.day) || 0) - (dayNumber(b.day) || 0));
   }
 
   // Variable (家計簿) spending total for `month`, optionally limited to entries
@@ -229,16 +273,23 @@
   }
 
   // One row per calendar month (Jan-Dec) of `year`, for the area-chart trend page.
-  function yearlySeries(dataset, year) {
+  // Months strictly after the real current month get null income/expense/savings
+  // (rather than 0 from sumBy finding no entries) so the area chart stops drawing
+  // instead of cliff-dropping to zero; assets/liabilities/cash/stock are unaffected
+  // since carryForwardSum already handles "no entry yet" correctly.
+  function yearlySeries(dataset, year, today) {
+    const now = today || new Date();
+    const currentKey = now.getFullYear() * 100 + (now.getMonth() + 1);
     return yearlyMonths(year).map((month) => {
-      const savings = monthlySavings(dataset, month);
       const netWorth = netWorthAsOf(dataset, month);
       const allocation = assetAllocationAsOf(dataset.assets, month);
+      const isFuture = monthKey(month) > currentKey;
+      const savings = isFuture ? null : monthlySavings(dataset, month);
       return {
         month,
-        income: savings.incomeTotal,
-        expense: savings.totalOutflow,
-        savings: savings.savings,
+        income: isFuture ? null : savings.incomeTotal,
+        expense: isFuture ? null : savings.totalOutflow,
+        savings: isFuture ? null : savings.savings,
         liabilities: netWorth.liabilitiesTotal,
         assets: netWorth.assetsTotal,
         cash: allocation.cash,
@@ -258,10 +309,15 @@
     monthlyExpenseBreakdown,
     EXPENSE_CATEGORY_ORDER,
     monthlyCategoryTotals,
+    expenseSummary,
+    VARIABLE_CATEGORY_ORDER,
+    monthlyVariableCategoryTotals,
     incomeItems,
+    fixedCostItems,
     assetItemsAsOf,
     liabilityItemsAsOf,
     dayNumber,
+    kakeiboItemsByDay,
     kakeiboTotalAsOfDay,
     spendingPaceInsight,
     categoryStandout,

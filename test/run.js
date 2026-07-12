@@ -186,6 +186,27 @@ assertEqual(
   "monthlyCategoryTotals returns the fixed 8-row breakdown, ローン+借金 merged into 負債返済額"
 );
 
+// --- aggregate: expenseSummary ---
+assertEqual(
+  Aggregate.expenseSummary(dataset, "2026年7月"),
+  { fixedCost: 100632, debtPayment: 38949, variableExpense: 31170 },
+  "expenseSummary splits the 8-row breakdown into 固定費/負債返済額/変動支出"
+);
+
+// --- aggregate: monthlyVariableCategoryTotals ---
+assertEqual(
+  Aggregate.monthlyVariableCategoryTotals(kakeibo, "2026年7月"),
+  [
+    { label: "食費", amount: 5620 },
+    { label: "雑費", amount: 2320 },
+    { label: "生活費", amount: 5710 },
+    { label: "娯楽費", amount: 12600 },
+    { label: "自己投資", amount: 0 },
+    { label: "医療費", amount: 4920 },
+  ],
+  "monthlyVariableCategoryTotals returns the 6 家計簿 categories only, excluding 固定費/負債返済額"
+);
+
 // --- aggregate: incomeItems ---
 assertEqual(
   Aggregate.incomeItems(income, "2026年6月"),
@@ -196,6 +217,27 @@ assertEqual(
   "incomeItems lists 収入 entries for the exact month, amount descending"
 );
 assertEqual(Aggregate.incomeItems(income, "2026年7月"), [], "incomeItems is empty for a month with no income rows");
+
+// --- aggregate: fixedCostItems ---
+assertEqual(
+  Aggregate.fixedCostItems(fixedCosts, "2026年7月"),
+  [
+    { name: "家賃+管理費 (27日 口座引落)", amount: 44000 },
+    { name: "交通費(菊名↔明治神宮前)", amount: 17720 },
+    { name: "光熱費+水道", amount: 12000 },
+    { name: "積立投資(オルカン)", amount: 10000 },
+    { name: "Claude", amount: 3500 },
+    { name: "通信費 (Rakuten Mobile)", amount: 3200 },
+    { name: "Adobe (年契約 要見直し)", amount: 3140 },
+    { name: "Oops (一括:¥35,349)", amount: 3000 },
+    { name: "APPLE ONE", amount: 1980 },
+    { name: "Chat GPT", amount: 1200 },
+    { name: "Amazon Prime (年間:¥5,900)", amount: 492 },
+    { name: "UVERworld (年間:¥5,500)", amount: 400 },
+  ],
+  "fixedCostItems lists 固定費 entries for the month, amount descending"
+);
+assertEqual(Aggregate.fixedCostItems(fixedCosts, "2026年8月"), [], "fixedCostItems is empty for a month with no rows");
 
 // --- aggregate: assetItemsAsOf ---
 assertEqual(
@@ -246,6 +288,36 @@ assertEqual(
 assertEqual(Aggregate.dayNumber("3日"), 3, "dayNumber parses a day label");
 assertEqual(Aggregate.dayNumber(""), null, "dayNumber returns null for an empty label");
 
+// --- aggregate: kakeiboItemsByDay ---
+const byDay = Aggregate.kakeiboItemsByDay(kakeibo, "2026年7月");
+assertEqual(byDay.length, 16, "kakeiboItemsByDay covers all July entries");
+assertEqual(
+  byDay[0],
+  { day: "1日", category: "医療費", item: "歯医者", amount: 4320 },
+  "kakeiboItemsByDay first entry shape"
+);
+assertEqual(
+  byDay.map((e) => e.day),
+  ["1日", "1日", "1日", "1日", "1日", "2日", "2日", "3日", "3日", "3日", "4日", "4日", "4日", "6日", "6日", "8日"],
+  "kakeiboItemsByDay is sorted ascending by day"
+);
+assertEqual(Aggregate.kakeiboItemsByDay(kakeibo, "2026年8月"), [], "kakeiboItemsByDay is empty for a month with no entries");
+
+const shuffledByDay = [
+  { month: "2099年1月", day: "5日", category: "食費", item: "B", amount: 200 },
+  { month: "2099年1月", day: "2日", category: "食費", item: "A", amount: 100 },
+  { month: "2099年1月", day: "5日", category: "食費", item: "A2", amount: 50 },
+];
+assertEqual(
+  Aggregate.kakeiboItemsByDay(shuffledByDay, "2099年1月"),
+  [
+    { day: "2日", category: "食費", item: "A", amount: 100 },
+    { day: "5日", category: "食費", item: "B", amount: 200 },
+    { day: "5日", category: "食費", item: "A2", amount: 50 },
+  ],
+  "kakeiboItemsByDay sorts by day but keeps original relative order for same-day entries"
+);
+
 assertEqual(
   Aggregate.kakeiboTotalAsOfDay(kakeibo, "2026年7月", 2),
   14009,
@@ -288,22 +360,27 @@ assertEqual(Aggregate.previousMonth(["2026年7月"], "2026年7月"), null, "prev
 assertEqual(Aggregate.distinctYears(assets), [2026], "distinctYears");
 
 // --- aggregate: yearlySeries ---
-const series2026 = Aggregate.yearlySeries(dataset, 2026);
+const series2026 = Aggregate.yearlySeries(dataset, 2026, new Date("2026-07-15"));
 assertEqual(series2026.length, 12, "yearlySeries covers all 12 months");
 assertEqual(
   series2026.find((s) => s.month === "2026年6月"),
   { month: "2026年6月", income: 425433, expense: 0, savings: 425433, liabilities: 0, assets: 0, cash: 0, stock: 0 },
-  "yearlySeries: June has income but no carried-forward balances yet (July is later)"
+  "yearlySeries: June (a past month) has income but no carried-forward balances yet (July is later)"
 );
 assertEqual(
   series2026.find((s) => s.month === "2026年7月"),
   { month: "2026年7月", income: 0, expense: 170751, savings: -170751, liabilities: 931442, assets: 561239, cash: 391802, stock: 169437 },
-  "yearlySeries: July has expenses and its own balances"
+  "yearlySeries: July (the current real month) reports its own actual expenses and balances"
 );
 assertEqual(
   series2026.find((s) => s.month === "2026年8月"),
-  { month: "2026年8月", income: 0, expense: 0, savings: 0, liabilities: 931442, assets: 561239, cash: 391802, stock: 169437 },
-  "yearlySeries: August carries July's balances forward with no new flow"
+  { month: "2026年8月", income: null, expense: null, savings: null, liabilities: 931442, assets: 561239, cash: 391802, stock: 169437 },
+  "yearlySeries: August (a real future month) is null income/expense/savings instead of 0, while balances still carry July forward"
+);
+assertEqual(
+  series2026.find((s) => s.month === "2026年12月").income,
+  null,
+  "yearlySeries: December (further in the future) is also null, not just the month right after today"
 );
 
 // --- aggregate: categoryStandout ---

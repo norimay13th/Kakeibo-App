@@ -57,7 +57,7 @@
   <div id="pace-insight" class="insight-banner"></div>
 
   <div class="chart-card">
-    <h2>カテゴリー別支出</h2>
+    <h2>総支出 割合</h2>
     <div class="chart-wrap chart-wrap--donut">
       <canvas id="chart-category"></canvas>
     </div>
@@ -65,9 +65,14 @@
   </div>
 
   <div class="chart-card">
-    <h2>カテゴリー別 先月比較</h2>
-    <div class="chart-wrap" style="height: 220px;">
-      <canvas id="chart-category-compare"></canvas>
+    <h2>変動支出 先月比較</h2>
+    <div class="chart-row">
+      <div class="chart-wrap">
+        <canvas id="chart-variable-total-compare"></canvas>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="chart-category-compare"></canvas>
+      </div>
     </div>
     <table class="compare" id="category-compare-table">
       <thead>
@@ -82,6 +87,21 @@
     <table class="compare" id="compare-table">
       <thead>
         <tr><th>項目</th><th>今月</th><th>先月</th><th>差額</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div class="chart-card">
+    <h2 id="title-fixed-costs">固定費：—</h2>
+    <div id="fixed-cost-table"></div>
+  </div>
+
+  <div class="chart-card">
+    <h2 id="title-kakeibo-detail">変動支出：—</h2>
+    <table class="itemized" id="kakeibo-detail-table">
+      <thead>
+        <tr><th>カテゴリー</th><th>用途</th><th>金額</th></tr>
       </thead>
       <tbody></tbody>
     </table>

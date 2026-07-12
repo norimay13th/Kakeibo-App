@@ -104,6 +104,9 @@
     const month = monthSelect.value;
     if (!month) return;
 
+    const months = Aggregate.distinctMonths(dataset.kakeibo);
+    const prevMonth = Aggregate.previousMonth(months, month);
+
     const savings = Aggregate.monthlySavings(dataset, month);
     const netWorth = Aggregate.netWorthAsOf(dataset, month);
 
@@ -115,18 +118,21 @@
     setStat("stat-liabilities", netWorth.liabilitiesTotal);
 
     renderWarnings(month);
-    renderPaceInsight(month);
+    renderPaceInsight(month, prevMonth);
     renderCategoryChart(month);
-    const comparisonRows = categoryComparisonRows(month);
+
+    const comparisonRows = variableCategoryComparisonRows(month, prevMonth);
+    renderVariableTotalCompareChart(month, prevMonth);
     renderCategoryCompareChart(comparisonRows);
     renderCategoryCompareTable(comparisonRows);
-    renderCompareTable(month, savings, netWorth);
+
+    renderCompareTable(month, prevMonth, savings, netWorth);
+    renderFixedCostTable(month);
+    renderKakeiboTable(month, savings);
   }
 
-  function renderPaceInsight(month) {
+  function renderPaceInsight(month, prevMonth) {
     const banner = el("pace-insight");
-    const months = Aggregate.distinctMonths(dataset.kakeibo);
-    const prevMonth = Aggregate.previousMonth(months, month);
     const insight = Aggregate.spendingPaceInsight(dataset.kakeibo, month, prevMonth);
     if (!insight) {
       banner.classList.remove("active");
@@ -185,7 +191,7 @@
   // Fixed name -> color mapping so a category keeps the same color everywhere (pie slice,
   // legend dot, bar chart) regardless of sort order, which changes month to month.
   const CATEGORY_COLOR_MAP = {
-    固定費: "#8E8E93",
+    固定費: "#5856D6",
     負債返済額: "#AF52DE",
     食費: "#FFCC00",
     雑費: "#FF9500",
@@ -197,6 +203,9 @@
   function categoryColor(label) {
     return CATEGORY_COLOR_MAP[label] || "#8E8E93";
   }
+  // Freed up from 固定費 above; used for the 変動支出総額 bar (the "black/gray" tone
+  // requested to visually separate the total from the 6 individual categories).
+  const VARIABLE_TOTAL_COLOR = "#8E8E93";
 
   function renderCategoryChart(month) {
     const breakdown = Aggregate.monthlyExpenseBreakdown(dataset, month);
@@ -247,13 +256,12 @@
     legend.innerHTML = `${rows}<li class="total"><span class="dot"></span><span class="name">合計</span><span class="amount">${yen(total)}</span><span class="pct"></span></li>`;
   }
 
-  // Rows for both the カテゴリー別 先月比較 table and its bar chart, sorted by this
-  // month's amount descending (largest category first).
-  function categoryComparisonRows(month) {
-    const months = Aggregate.distinctMonths(dataset.kakeibo);
-    const prevMonth = Aggregate.previousMonth(months, month);
-    const current = Aggregate.monthlyCategoryTotals(dataset, month);
-    const previous = prevMonth ? Aggregate.monthlyCategoryTotals(dataset, prevMonth) : null;
+  // Rows for both the 変動支出 先月比較 table and its bar chart (6 家計簿 categories
+  // only, 固定費/負債返済額 moved to #compare-table), sorted by this month's amount
+  // descending (largest category first).
+  function variableCategoryComparisonRows(month, prevMonth) {
+    const current = Aggregate.monthlyVariableCategoryTotals(dataset.kakeibo, month);
+    const previous = prevMonth ? Aggregate.monthlyVariableCategoryTotals(dataset.kakeibo, prevMonth) : null;
     const prevByLabel = new Map((previous || []).map((r) => [r.label, r.amount]));
 
     return current
@@ -287,6 +295,31 @@
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   }
 
+  // Single-bar comparison of the combined 6-category 変動支出 total, shown to the left
+  // of the per-category breakdown so the overall trend is visible at a glance.
+  function renderVariableTotalCompareChart(month, prevMonth) {
+    const current = Aggregate.expenseSummary(dataset, month).variableExpense;
+    const previous = prevMonth ? Aggregate.expenseSummary(dataset, prevMonth).variableExpense : null;
+    destroyChart("variableTotalCompare");
+    charts.variableTotalCompare = new Chart(el("chart-variable-total-compare"), {
+      type: "bar",
+      data: {
+        labels: ["変動支出"],
+        datasets: [
+          { label: "今月", data: [current], backgroundColor: VARIABLE_TOTAL_COLOR },
+          { label: "先月", data: [previous], backgroundColor: withAlpha(VARIABLE_TOTAL_COLOR, 0.35) },
+        ],
+      },
+      options: {
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: true, position: "bottom", labels: { boxWidth: 10, font: { size: 12 } } },
+          tooltip: { callbacks: { label: (ctx) => ` ${ctx.dataset.label}: ${yen(ctx.parsed.y)}` } },
+        },
+      },
+    });
+  }
+
   function renderCategoryCompareChart(rows) {
     const colors = rows.map((r) => categoryColor(r.label));
     destroyChart("categoryCompare");
@@ -309,16 +342,19 @@
     });
   }
 
-  function renderCompareTable(month, savings, netWorth) {
-    const months = Aggregate.distinctMonths(dataset.kakeibo);
-    const prevMonth = Aggregate.previousMonth(months, month);
+  function renderCompareTable(month, prevMonth, savings, netWorth) {
     const prevSavings = prevMonth ? Aggregate.monthlySavings(dataset, prevMonth) : null;
     const prevNetWorth = prevMonth ? Aggregate.netWorthAsOf(dataset, prevMonth) : null;
+    const expenseSummary = Aggregate.expenseSummary(dataset, month);
+    const prevExpenseSummary = prevMonth ? Aggregate.expenseSummary(dataset, prevMonth) : null;
 
     // increaseIsGood: whether a bigger number than last month is good news (green) or bad (red).
     const rows = [
       ["収入", savings.incomeTotal, prevSavings && prevSavings.incomeTotal, true],
       ["支出", savings.totalOutflow, prevSavings && prevSavings.totalOutflow, false],
+      ["固定費", expenseSummary.fixedCost, prevExpenseSummary && prevExpenseSummary.fixedCost, false],
+      ["負債返済額", expenseSummary.debtPayment, prevExpenseSummary && prevExpenseSummary.debtPayment, false],
+      ["変動支出", expenseSummary.variableExpense, prevExpenseSummary && prevExpenseSummary.variableExpense, false],
       ["貯金額", savings.savings, prevSavings && prevSavings.savings, true],
       ["純資産額", netWorth.netWorth, prevNetWorth && prevNetWorth.netWorth, true],
       ["資産額", netWorth.assetsTotal, prevNetWorth && prevNetWorth.assetsTotal, true],
@@ -338,6 +374,37 @@
       .join("");
   }
 
+  function renderFixedCostTable(month) {
+    const rows = Aggregate.fixedCostItems(dataset.fixedCosts, month);
+    const total = DetailModal.sumAmounts(rows);
+    el("title-fixed-costs").textContent = `固定費：${yen(total)}`;
+    el("fixed-cost-table").innerHTML = DetailModal.renderSection(null, rows, total);
+  }
+
+  function renderKakeiboTable(month, savings) {
+    const items = Aggregate.kakeiboItemsByDay(dataset.kakeibo, month);
+    el("title-kakeibo-detail").textContent = `${month}の変動支出：${yen(savings.expenseTotal)}`;
+
+    const tbody = document.querySelector("#kakeibo-detail-table tbody");
+    if (!items.length) {
+      tbody.innerHTML = `<tr><td colspan="3">データがありません</td></tr>`;
+      return;
+    }
+    let currentDay = null;
+    const rows = items
+      .map((item) => {
+        let dayRow = "";
+        if (item.day !== currentDay) {
+          currentDay = item.day;
+          dayRow = `<tr class="day-heading"><td colspan="3">${item.day || "(日付不明)"}</td></tr>`;
+        }
+        return `${dayRow}<tr><td>${item.category}</td><td>${item.item}</td><td>${yen(item.amount)}</td></tr>`;
+      })
+      .join("");
+    const total = items.reduce((t, i) => t + i.amount, 0);
+    tbody.innerHTML = `${rows}<tr class="total"><td colspan="2">合計</td><td>${yen(total)}</td></tr>`;
+  }
+
   function openDetailModal(kind) {
     const month = monthSelect.value;
     if (!month || !dataset) return;
@@ -346,7 +413,12 @@
       const rows = Aggregate.incomeItems(dataset.income, month);
       DetailModal.open("収入の内訳", DetailModal.renderSection(null, rows, DetailModal.sumAmounts(rows)));
     } else if (kind === "expense") {
-      const rows = Aggregate.monthlyCategoryTotals(dataset, month).map((r) => ({ name: r.label, amount: r.amount }));
+      const summary = Aggregate.expenseSummary(dataset, month);
+      const rows = [
+        { name: "固定費", amount: summary.fixedCost },
+        { name: "負債返済額", amount: summary.debtPayment },
+        { name: "変動支出", amount: summary.variableExpense },
+      ];
       DetailModal.open("支出の内訳", DetailModal.renderSection(null, rows, DetailModal.sumAmounts(rows)));
     } else if (kind === "assets") {
       const { cash, stock } = Aggregate.assetItemsAsOf(dataset.assets, month);

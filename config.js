@@ -10,7 +10,7 @@ const CONFIG = {
 
   // Tab names the dashboard reads from. Update these if you rename a tab in the spreadsheet.
   DASHBOARD_SHEETS: {
-    KAKEIBO: "支出",
+    KAKEIBO: "変動支出",
     ASSETS: "資産",
     INCOME: "収入",
     LOANS: "ローン",

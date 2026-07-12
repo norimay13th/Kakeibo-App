@@ -139,10 +139,20 @@
     }
   }
 
+  // Walks the series backward to find the most recent non-null point. income/expense/
+  // savings are null for future months (see yearlySeries), so this surfaces the latest
+  // real figure instead of always reading December (which may not have happened yet).
+  function latestNonNull(series, field) {
+    for (let i = series.length - 1; i >= 0; i--) {
+      if (series[i][field] != null) return series[i][field];
+    }
+    return null;
+  }
+
   function renderAreaChart(key, series, field, label) {
     destroyChart(key);
-    const latest = series[series.length - 1][field];
-    el(`title-${key}`).textContent = `${label}：${yen(latest)}`;
+    const latest = latestNonNull(series, field);
+    el(`title-${key}`).textContent = latest == null ? `${label}：—` : `${label}：${yen(latest)}`;
     charts[key] = new Chart(el(`chart-${key}`), {
       type: "line",
       data: {
