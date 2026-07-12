@@ -153,43 +153,35 @@
     return getComputedStyle(document.documentElement).getPropertyValue("--text").trim() || "#000";
   }
 
-  function separatorColor() {
-    return getComputedStyle(document.documentElement).getPropertyValue("--text-tertiary").trim() || "#999";
-  }
-
   function renderAllocationChart(year) {
     const allocation = Aggregate.assetAllocationAsOf(dataset.assets, `${year}年12月`);
     const labels = ["現金", "株式"];
     const values = [allocation.cash, allocation.stock];
-    const formatter = (value, ctx, total) => {
-      const label = labels[ctx.dataIndex];
-      const pct = total ? Math.round((value / total) * 100) : 0;
-      return [label, `¥${Math.round(value).toLocaleString()} (${pct}%)`];
-    };
+    const colors = ["#007AFF", "#FF3B30"];
+    const total = values.reduce((t, v) => t + v, 0);
 
     destroyChart("allocation");
-    const canvas = el("chart-allocation");
-    const total = values.reduce((t, v) => t + v, 0);
-    const leaderLabels = {
-      textColor: textColor(),
-      lineColor: separatorColor(),
-      minShare: 0,
-      formatter,
-      centerLabel: "総資産",
-      centerValue: yen(total),
-    };
-    charts.allocation = new Chart(canvas, {
+    charts.allocation = new Chart(el("chart-allocation"), {
       type: "doughnut",
-      data: { labels, datasets: [{ data: values }] },
-      plugins: [LeaderLabels],
+      data: { labels, datasets: [{ data: values, backgroundColor: colors }] },
+      plugins: [SliceLabels],
       options: {
         maintainAspectRatio: false,
         cutout: "65%",
-        radius: computeDonutRadius(canvas.parentElement, values, formatter, leaderLabels),
+        layout: { padding: 16 },
         plugins: {
           legend: { display: false },
           tooltip: { enabled: false },
-          leaderLabels,
+          sliceLabels: {
+            centerValueColor: textColor(),
+            centerLabel: "総資産",
+            centerValue: yen(total),
+            formatter: (value, ctx, grandTotal) => {
+              const label = labels[ctx.dataIndex];
+              const pct = grandTotal ? Math.round((value / grandTotal) * 100) : 0;
+              return [label, `¥${Math.round(value).toLocaleString()} (${pct}%)`];
+            },
+          },
         },
       },
     });

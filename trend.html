@@ -33,6 +33,13 @@
   </div>
 
   <div class="chart-card">
+    <h2>保有資産割合</h2>
+    <div class="chart-wrap chart-wrap--donut">
+      <canvas id="chart-allocation"></canvas>
+    </div>
+  </div>
+
+  <div class="chart-card">
     <h2>収入金額</h2>
     <div class="chart-wrap">
       <canvas id="chart-income"></canvas>
@@ -62,17 +69,10 @@
       <canvas id="chart-assets"></canvas>
     </div>
   </div>
-
-  <div class="chart-card">
-    <h2>保有資産割合</h2>
-    <div class="chart-wrap chart-wrap--donut">
-      <canvas id="chart-allocation"></canvas>
-    </div>
-  </div>
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
-<script src="leader-labels.js"></script>
+<script src="slice-labels.js"></script>
 <script src="config.js"></script>
 <script src="sheets.js"></script>
 <script src="parser.js"></script>

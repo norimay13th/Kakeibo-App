@@ -198,8 +198,10 @@
     charts.category = new Chart(el("chart-category"), {
       type: "doughnut",
       data: { labels, datasets: [{ data: values, backgroundColor: colors }] },
+      plugins: [SliceLabels],
       options: {
         maintainAspectRatio: false,
+        layout: { padding: 16 },
         plugins: {
           legend: { display: false },
           tooltip: {
@@ -209,6 +211,9 @@
                 return ` ${ctx.label}: ${yen(ctx.parsed)} (${pct}%)`;
               },
             },
+          },
+          sliceLabels: {
+            formatter: (_value, ctx) => [ctx.chart.data.labels[ctx.dataIndex]],
           },
         },
       },
