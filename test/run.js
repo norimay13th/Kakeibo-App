@@ -444,6 +444,20 @@ const assetsDiff = Aggregate.seriesWithDiff(series2026, "assets");
 assertEqual(assetsDiff[6], { month: "2026年7月", value: 561239, diff: null }, "seriesWithDiff on a snapshot field: July is the first real value (June was null, nothing to diff against yet)");
 assertEqual(assetsDiff[7], { month: "2026年8月", value: 561239, diff: 0 }, "seriesWithDiff on a snapshot field: August carries forward unchanged, diff 0 (not null, since both months resolve to real snapshot values)");
 
+// with asOfField, a carried-forward (not reconfirmed) month shows "—" (null) instead
+// of quietly repeating last month's figure, matching the chart's hatched segments.
+const assetsDiffConfirmedOnly = Aggregate.seriesWithDiff(series2026, "assets", "assetsAsOfMonth");
+assertEqual(
+  assetsDiffConfirmedOnly[6],
+  { month: "2026年7月", value: 561239, diff: null },
+  "seriesWithDiff with asOfField: July is reconfirmed this month (assetsAsOfMonth === 2026年7月), so it still shows its real value"
+);
+assertEqual(
+  assetsDiffConfirmedOnly[7],
+  { month: "2026年8月", value: null, diff: null },
+  "seriesWithDiff with asOfField: August only carries July's value forward (assetsAsOfMonth !== 2026年8月), so it's null/\"—\" here instead of repeating 561239"
+);
+
 // --- aggregate: categoryStandout ---
 assertEqual(
   Aggregate.categoryStandout(dataset, "2026年7月", null),

@@ -287,12 +287,17 @@
   // every area-chart card): all of them open the same month-by-month + MoM-diff table
   // for their metric, replacing the old itemized holdings/loan modals and the area
   // charts' hover tooltips.
+  // asOfField: for snapshot metrics, only a month that was actually reconfirmed that
+  // month (row[asOfField] === row.month) counts as having a value here — a carried-
+  // forward month shows "—" too, matching the chart's hatched segments (see
+  // Aggregate.seriesWithDiff). Flow metrics have no asOfField; a real value there
+  // already means "recorded this month" (see yearlySeries/hasMonthData).
   const CHART_DETAIL_CONFIG = {
-    networth: { label: "純資産額", field: "netWorth", increaseIsGood: true },
-    assets: { label: "資産額", field: "assets", increaseIsGood: true },
-    stock: { label: "株式", field: "stock", increaseIsGood: true },
-    cash: { label: "現金", field: "cash", increaseIsGood: true },
-    liabilities: { label: "負債額", field: "liabilities", increaseIsGood: false },
+    networth: { label: "純資産額", field: "netWorth", asOfField: "netWorthAsOfMonth", increaseIsGood: true },
+    assets: { label: "資産額", field: "assets", asOfField: "assetsAsOfMonth", increaseIsGood: true },
+    stock: { label: "株式", field: "stock", asOfField: "assetsAsOfMonth", increaseIsGood: true },
+    cash: { label: "現金", field: "cash", asOfField: "assetsAsOfMonth", increaseIsGood: true },
+    liabilities: { label: "負債額", field: "liabilities", asOfField: "liabilitiesAsOfMonth", increaseIsGood: false },
     income: { label: "収入金額", field: "income", increaseIsGood: true },
     expense: { label: "支出金額", field: "expense", increaseIsGood: false },
     savings: { label: "貯金額", field: "savings", increaseIsGood: true },
@@ -301,7 +306,7 @@
   function openDetailModal(kind) {
     const config = CHART_DETAIL_CONFIG[kind];
     if (!config || !currentYear || !currentSeries.length) return;
-    const rows = Aggregate.seriesWithDiff(currentSeries, config.field);
+    const rows = Aggregate.seriesWithDiff(currentSeries, config.field, config.asOfField);
     DetailModal.open(`${currentYear}年 ${config.label}`, DetailModal.renderMonthlySeriesTable(rows, config.increaseIsGood));
   }
 

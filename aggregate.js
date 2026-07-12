@@ -332,10 +332,17 @@
   // Month-over-month diff series for a yearlySeries field, for the tap-to-see-monthly-
   // detail modal on the trend page's area charts. diff is null when either this month
   // or the previous one has no value (gap in flow data, or the very first row).
-  function seriesWithDiff(series, field) {
+  //
+  // asOfField (optional, snapshot fields only) names the row's "○○AsOfMonth" field
+  // (see yearlySeries). When given, a month only counts as having a value if it was
+  // actually reconfirmed that month (row[asOfField] === row.month) — a carried-forward
+  // month shows "—" here too, same as the chart's hatched segments, instead of quietly
+  // repeating last known figure as if it were freshly recorded.
+  function seriesWithDiff(series, field, asOfField) {
+    const confirmedValue = (row) => (!asOfField || row[asOfField] === row.month ? row[field] : null);
     return series.map((row, i) => {
-      const value = row[field];
-      const prevValue = i > 0 ? series[i - 1][field] : undefined;
+      const value = confirmedValue(row);
+      const prevValue = i > 0 ? confirmedValue(series[i - 1]) : undefined;
       const diff = value != null && prevValue != null ? value - prevValue : null;
       return { month: row.month, value, diff };
     });
