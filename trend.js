@@ -245,14 +245,7 @@
         layout: { padding: 16 },
         plugins: {
           legend: { display: false },
-          tooltip: {
-            callbacks: {
-              label: (ctx) => {
-                const pct = total ? Math.round((ctx.parsed / total) * 100) : 0;
-                return ` ${ctx.label}: ${yen(ctx.parsed)} (${pct}%)`;
-              },
-            },
-          },
+          tooltip: { enabled: false },
           sliceLabels: {
             formatter: (value, ctx, grandTotal) => {
               const label = labels[ctx.dataIndex];
