@@ -84,10 +84,16 @@
 
   <div class="chart-card">
     <h2>先月比較</h2>
-    <table class="compare" id="compare-table">
+    <div class="chart-wrap" style="height: 220px;">
+      <canvas id="chart-headline-compare"></canvas>
+    </div>
+    <table class="compare" id="headline-compare-table">
       <thead>
         <tr><th>項目</th><th>今月</th><th>先月</th><th>差額</th></tr>
       </thead>
+      <tbody></tbody>
+    </table>
+    <table class="compare" id="other-compare-table">
       <tbody></tbody>
     </table>
   </div>
@@ -98,7 +104,7 @@
   </div>
 
   <div class="chart-card">
-    <h2 id="title-kakeibo-detail">変動支出：—</h2>
+    <h2 id="title-kakeibo-detail">変動支出 明細</h2>
     <table class="itemized" id="kakeibo-detail-table">
       <thead>
         <tr><th>カテゴリー</th><th>用途</th><th>金額</th></tr>

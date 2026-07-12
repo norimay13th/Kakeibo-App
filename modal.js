@@ -69,6 +69,23 @@ const DetailModal = (() => {
     );
   }
 
+  // Month/value/MoM-diff table for the trend page's tap-to-see-monthly-detail modal
+  // (replaces Chart.js hover tooltips on the area charts). rows come from
+  // Aggregate.seriesWithDiff. increaseIsGood mirrors the compare-table convention:
+  // whether a bigger number than last month is good news (green) or bad (red).
+  function renderMonthlySeriesTable(rows, increaseIsGood) {
+    const body = rows
+      .map(({ month, value, diff }) => {
+        const shortMonth = month.replace(/^\d+年/, "");
+        const valueText = value == null ? "—" : yen(value);
+        const diffText = diff == null ? "—" : `${diff >= 0 ? "+" : ""}${yen(diff)}`;
+        const diffClass = diff == null || diff === 0 ? "" : (increaseIsGood ? diff >= 0 : diff <= 0) ? "positive" : "negative";
+        return `<tr><td>${shortMonth}</td><td>${valueText}</td><td class="${diffClass}">${diffText}</td></tr>`;
+      })
+      .join("");
+    return `<table class="compare"><thead><tr><th>月</th><th>金額</th><th>前月比</th></tr></thead><tbody>${body}</tbody></table>`;
+  }
+
   function open(title, bodyHtml) {
     titleEl.textContent = title;
     bodyEl.innerHTML = bodyHtml;
@@ -82,7 +99,7 @@ const DetailModal = (() => {
   // Wires every .stat-card[data-detail] on the page to call openFn(card.dataset.detail)
   // on click or Enter/Space.
   function wireCards(openFn) {
-    document.querySelectorAll(".stat-card[data-detail]").forEach((card) => {
+    document.querySelectorAll(".stat-card[data-detail], .hero-card[data-detail]").forEach((card) => {
       card.addEventListener("click", () => openFn(card.dataset.detail));
       card.addEventListener("keydown", (e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -101,5 +118,15 @@ const DetailModal = (() => {
     if (e.key === "Escape") close();
   });
 
-  return { yen, sumAmounts, renderSection, renderGrandTotal, renderLiabilitySections, open, close, wireCards };
+  return {
+    yen,
+    sumAmounts,
+    renderSection,
+    renderGrandTotal,
+    renderLiabilitySections,
+    renderMonthlySeriesTable,
+    open,
+    close,
+    wireCards,
+  };
 })();

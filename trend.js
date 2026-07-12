@@ -10,6 +10,8 @@
 
   const charts = {};
   let dataset = null;
+  let currentSeries = [];
+  let currentYear = null;
 
   function loadScript(src) {
     return new Promise((resolve, reject) => {
@@ -107,11 +109,21 @@
     el(id).textContent = yen(value);
   }
 
+  // Picks whichever month is chronologically later (for combining two independently
+  // carried-forward sources, e.g. ローン and 借金, into one "as of" reference).
+  function pickLaterMonth(a, b) {
+    if (a == null) return b;
+    if (b == null) return a;
+    return Aggregate.monthKey(a) >= Aggregate.monthKey(b) ? a : b;
+  }
+
   function renderAll() {
     const year = Number(yearSelect.value);
     if (!year) return;
+    currentYear = year;
 
     const series = Aggregate.yearlySeries(dataset, year);
+    currentSeries = series;
     const netWorth = Aggregate.netWorthAsOf(dataset, `${year}年12月`);
 
     const heroEl = el("hero-networth");
@@ -122,10 +134,36 @@
     setStat("stat-assets", netWorth.assetsTotal);
     setStat("stat-liabilities", netWorth.liabilitiesTotal);
 
-    renderAreaChart("assets", series, "assets", "資産額");
-    renderAreaChart("stock", series, "stock", "株式");
-    renderAreaChart("cash", series, "cash", "現金");
-    renderAreaChart("liabilities", series, "liabilities", "負債額");
+    // snapshot "as of" resolution: 資産(現金/株式含む) and 負債(ローン+借金) each
+    // carry forward independently, so their most-recent-recorded month can differ.
+    const assetsCarry = Aggregate.carryForwardSum(dataset.assets, `${year}年12月`, "amount");
+    const allocation = Aggregate.assetAllocationAsOf(dataset.assets, `${year}年12月`);
+    const loansCarry = Aggregate.carryForwardSum(dataset.loans, `${year}年12月`, "balance");
+    const debtsCarry = Aggregate.carryForwardSum(dataset.debts, `${year}年12月`, "balance");
+    const liabilitiesMonth = pickLaterMonth(loansCarry.month, debtsCarry.month);
+    const liabilitiesTotal = loansCarry.total + debtsCarry.total;
+    const netWorthMonth = pickLaterMonth(assetsCarry.month, liabilitiesMonth);
+
+    renderAreaChart("networth", series, "netWorth", "純資産額", {
+      snapshot: true,
+      asOf: { month: netWorthMonth, total: assetsCarry.total - liabilitiesTotal },
+    });
+    renderAreaChart("assets", series, "assets", "資産額", {
+      snapshot: true,
+      asOf: { month: assetsCarry.month, total: assetsCarry.total },
+    });
+    renderAreaChart("stock", series, "stock", "株式", {
+      snapshot: true,
+      asOf: { month: assetsCarry.month, total: allocation.stock },
+    });
+    renderAreaChart("cash", series, "cash", "現金", {
+      snapshot: true,
+      asOf: { month: assetsCarry.month, total: allocation.cash },
+    });
+    renderAreaChart("liabilities", series, "liabilities", "負債額", {
+      snapshot: true,
+      asOf: { month: liabilitiesMonth, total: liabilitiesTotal },
+    });
     renderAreaChart("income", series, "income", "収入金額");
     renderAreaChart("expense", series, "expense", "支出金額");
     renderAreaChart("savings", series, "savings", "貯金額");
@@ -139,20 +177,32 @@
     }
   }
 
-  // Walks the series backward to find the most recent non-null point. income/expense/
-  // savings are null for future months (see yearlySeries), so this surfaces the latest
-  // real figure instead of always reading December (which may not have happened yet).
-  function latestNonNull(series, field) {
+  // Walks the series backward to find the most recent non-null point (収入/支出/貯金額
+  // are null for months with no recorded entry — see yearlySeries).
+  function findLatest(series, field) {
     for (let i = series.length - 1; i >= 0; i--) {
-      if (series[i][field] != null) return series[i][field];
+      if (series[i][field] != null) return { month: series[i].month, value: series[i][field] };
     }
     return null;
   }
 
-  function renderAreaChart(key, series, field, label) {
+  // snapshot charts (資産額/株式/現金/負債額/純資産額) show the latest carried-forward
+  // figure with its "as of" month (opts.asOf, computed by the caller via carryForwardSum
+  // since a snapshot value can resolve to an earlier month than "now"). flow charts
+  // (収入/支出/貯金額) show the year-to-date total instead, since summing a snapshot
+  // across months wouldn't mean anything.
+  function renderAreaChart(key, series, field, label, opts = {}) {
     destroyChart(key);
-    const latest = latestNonNull(series, field);
-    el(`title-${key}`).textContent = latest == null ? `${label}：—` : `${label}：${yen(latest)}`;
+    let titleText;
+    if (opts.snapshot) {
+      const asOf = opts.asOf;
+      titleText = asOf.month == null ? `${label}：—` : `${label}：${yen(asOf.total)} (${asOf.month}時点)`;
+    } else {
+      const latest = findLatest(series, field);
+      const annualSum = series.reduce((t, s) => t + (s[field] || 0), 0);
+      titleText = latest == null ? `${label}：—` : `${label}：${yen(annualSum)} (${latest.month}時点の合計)`;
+    }
+    el(`title-${key}`).textContent = titleText;
     charts[key] = new Chart(el(`chart-${key}`), {
       type: "line",
       data: {
@@ -166,7 +216,10 @@
           },
         ],
       },
-      options: { maintainAspectRatio: false, plugins: { legend: { display: false } } },
+      options: {
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { enabled: false } },
+      },
     });
   }
 
@@ -225,26 +278,39 @@
     legend.innerHTML = `${rows}<li class="total"><span class="dot"></span><span class="name">合計</span><span class="amount">${yen(total)}</span><span class="pct"></span></li>`;
   }
 
-  function openDetailModal(kind) {
-    const year = Number(yearSelect.value);
-    if (!year || !dataset) return;
-    const month = `${year}年12月`;
+  // Shared by every tappable surface on this page (hero-card, stat-grid tiles, and
+  // every area-chart card): all of them open the same month-by-month + MoM-diff table
+  // for their metric, replacing the old itemized holdings/loan modals and the area
+  // charts' hover tooltips.
+  const CHART_DETAIL_CONFIG = {
+    networth: { label: "純資産額", field: "netWorth", increaseIsGood: true },
+    assets: { label: "資産額", field: "assets", increaseIsGood: true },
+    stock: { label: "株式", field: "stock", increaseIsGood: true },
+    cash: { label: "現金", field: "cash", increaseIsGood: true },
+    liabilities: { label: "負債額", field: "liabilities", increaseIsGood: false },
+    income: { label: "収入金額", field: "income", increaseIsGood: true },
+    expense: { label: "支出金額", field: "expense", increaseIsGood: false },
+    savings: { label: "貯金額", field: "savings", increaseIsGood: true },
+  };
 
-    if (kind === "assets") {
-      const { cash, stock } = Aggregate.assetItemsAsOf(dataset.assets, month);
-      DetailModal.open(
-        "資産額の内訳",
-        DetailModal.renderSection("現金", cash, DetailModal.sumAmounts(cash)) +
-          DetailModal.renderSection("株式", stock, DetailModal.sumAmounts(stock)) +
-          DetailModal.renderGrandTotal(DetailModal.sumAmounts(cash) + DetailModal.sumAmounts(stock))
-      );
-    } else if (kind === "liabilities") {
-      const { loans, debts } = Aggregate.liabilityItemsAsOf(dataset.loans, dataset.debts, month);
-      DetailModal.open("負債額の内訳", DetailModal.renderLiabilitySections(loans.items, debts.items));
-    }
+  function openDetailModal(kind) {
+    const config = CHART_DETAIL_CONFIG[kind];
+    if (!config || !currentYear || !currentSeries.length) return;
+    const rows = Aggregate.seriesWithDiff(currentSeries, config.field);
+    DetailModal.open(`${currentYear}年 ${config.label}`, DetailModal.renderMonthlySeriesTable(rows, config.increaseIsGood));
   }
 
   DetailModal.wireCards(openDetailModal);
+
+  document.querySelectorAll(".chart-card[data-chart-detail]").forEach((card) => {
+    card.addEventListener("click", () => openDetailModal(card.dataset.chartDetail));
+    card.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        openDetailModal(card.dataset.chartDetail);
+      }
+    });
+  });
 
   yearSelect.addEventListener("change", renderAll);
 

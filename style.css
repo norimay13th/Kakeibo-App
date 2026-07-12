@@ -237,6 +237,12 @@ table.compare td {
 table.compare td:first-child { text-align: left; color: var(--text-secondary); }
 table.compare td.positive { color: var(--positive); }
 table.compare td.negative { color: var(--negative); }
+table.compare tr.total td {
+  font-weight: 700;
+  color: var(--text);
+  border-top: 1px solid var(--text-tertiary);
+}
+table.compare + table.compare { margin-top: 16px; }
 
 /* 変動支出詳細: day-grouped list (カテゴリー/用途/金額), a day-heading row breaks up
    the table instead of repeating the day on every row. */
@@ -267,6 +273,7 @@ table.itemized tr.day-heading td {
   color: var(--text-secondary);
   background: rgba(118, 118, 128, 0.08);
 }
+table.itemized tr.day-heading td:last-child { text-align: left; }
 table.itemized tr.day-heading:first-child td { padding-top: 8px; }
 @media (prefers-color-scheme: dark) {
   table.itemized tr.day-heading td { background: rgba(118, 118, 128, 0.16); }
@@ -277,8 +284,12 @@ table.itemized tr.total td {
   border-top: 1px solid var(--text-tertiary);
 }
 
-.stat-card[data-detail] { cursor: pointer; }
-.stat-card[data-detail]:active { opacity: 0.7; }
+.stat-card[data-detail],
+.hero-card[data-detail],
+.chart-card[data-chart-detail] { cursor: pointer; }
+.stat-card[data-detail]:active,
+.hero-card[data-detail]:active,
+.chart-card[data-chart-detail]:active { opacity: 0.7; }
 
 .modal-backdrop {
   display: none;

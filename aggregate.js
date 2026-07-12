@@ -272,29 +272,49 @@
     return Array.from({ length: 12 }, (_, i) => `${year}年${i + 1}月`);
   }
 
+  // Whether `month` has at least one recorded entry in any flow-type sheet (収入/
+  // 家計簿/固定費/ローン/借金). A month with nothing recorded — past or future — has
+  // no real income/expense/savings figure, as opposed to a genuine ¥0.
+  function hasMonthData({ income, kakeibo, fixedCosts, loans, debts }, month) {
+    return [income, kakeibo, fixedCosts, loans, debts].some((entries) =>
+      entries.some((e) => e.month === month)
+    );
+  }
+
   // One row per calendar month (Jan-Dec) of `year`, for the area-chart trend page.
-  // Months strictly after the real current month get null income/expense/savings
-  // (rather than 0 from sumBy finding no entries) so the area chart stops drawing
-  // instead of cliff-dropping to zero; assets/liabilities/cash/stock are unaffected
-  // since carryForwardSum already handles "no entry yet" correctly.
-  function yearlySeries(dataset, year, today) {
-    const now = today || new Date();
-    const currentKey = now.getFullYear() * 100 + (now.getMonth() + 1);
+  // Months with no recorded flow entry get null income/expense/savings (rather than
+  // 0 from sumBy finding nothing) so the area chart leaves a gap instead of drawing a
+  // misleading ¥0; assets/liabilities/cash/stock are unaffected since carryForwardSum
+  // already handles "no entry yet" correctly.
+  function yearlySeries(dataset, year) {
     return yearlyMonths(year).map((month) => {
       const netWorth = netWorthAsOf(dataset, month);
       const allocation = assetAllocationAsOf(dataset.assets, month);
-      const isFuture = monthKey(month) > currentKey;
-      const savings = isFuture ? null : monthlySavings(dataset, month);
+      const hasFlow = hasMonthData(dataset, month);
+      const savings = hasFlow ? monthlySavings(dataset, month) : null;
       return {
         month,
-        income: isFuture ? null : savings.incomeTotal,
-        expense: isFuture ? null : savings.totalOutflow,
-        savings: isFuture ? null : savings.savings,
+        income: hasFlow ? savings.incomeTotal : null,
+        expense: hasFlow ? savings.totalOutflow : null,
+        savings: hasFlow ? savings.savings : null,
+        netWorth: netWorth.netWorth,
         liabilities: netWorth.liabilitiesTotal,
         assets: netWorth.assetsTotal,
         cash: allocation.cash,
         stock: allocation.stock,
       };
+    });
+  }
+
+  // Month-over-month diff series for a yearlySeries field, for the tap-to-see-monthly-
+  // detail modal on the trend page's area charts. diff is null when either this month
+  // or the previous one has no value (gap in flow data, or the very first row).
+  function seriesWithDiff(series, field) {
+    return series.map((row, i) => {
+      const value = row[field];
+      const prevValue = i > 0 ? series[i - 1][field] : undefined;
+      const diff = value != null && prevValue != null ? value - prevValue : null;
+      return { month: row.month, value, diff };
     });
   }
 
@@ -325,6 +345,8 @@
     netWorthAsOf,
     assetAllocationAsOf,
     yearlyMonths,
+    hasMonthData,
     yearlySeries,
+    seriesWithDiff,
   };
 });

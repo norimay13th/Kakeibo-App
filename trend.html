@@ -27,7 +27,7 @@
 
   <div id="warning-banner"></div>
 
-  <div class="hero-card">
+  <div class="hero-card" data-detail="networth" role="button" tabindex="0">
     <div class="label">純資産額</div>
     <div class="value" id="hero-networth">—</div>
   </div>
@@ -51,43 +51,49 @@
     <ul class="legend-list" id="allocation-legend"></ul>
   </div>
 
-  <div class="chart-card">
+  <div class="chart-card" data-chart-detail="networth" role="button" tabindex="0">
+    <h2 id="title-networth">純資産額</h2>
+    <div class="chart-wrap">
+      <canvas id="chart-networth"></canvas>
+    </div>
+  </div>
+  <div class="chart-card" data-chart-detail="assets" role="button" tabindex="0">
     <h2 id="title-assets">資産額</h2>
     <div class="chart-wrap">
       <canvas id="chart-assets"></canvas>
     </div>
   </div>
-  <div class="chart-card">
+  <div class="chart-card" data-chart-detail="stock" role="button" tabindex="0">
     <h2 id="title-stock">株式</h2>
     <div class="chart-wrap">
       <canvas id="chart-stock"></canvas>
     </div>
   </div>
-  <div class="chart-card">
+  <div class="chart-card" data-chart-detail="cash" role="button" tabindex="0">
     <h2 id="title-cash">現金</h2>
     <div class="chart-wrap">
       <canvas id="chart-cash"></canvas>
     </div>
   </div>
-  <div class="chart-card">
+  <div class="chart-card" data-chart-detail="liabilities" role="button" tabindex="0">
     <h2 id="title-liabilities">負債額</h2>
     <div class="chart-wrap">
       <canvas id="chart-liabilities"></canvas>
     </div>
   </div>
-  <div class="chart-card">
+  <div class="chart-card" data-chart-detail="income" role="button" tabindex="0">
     <h2 id="title-income">収入金額</h2>
     <div class="chart-wrap">
       <canvas id="chart-income"></canvas>
     </div>
   </div>
-  <div class="chart-card">
+  <div class="chart-card" data-chart-detail="expense" role="button" tabindex="0">
     <h2 id="title-expense">支出金額</h2>
     <div class="chart-wrap">
       <canvas id="chart-expense"></canvas>
     </div>
   </div>
-  <div class="chart-card">
+  <div class="chart-card" data-chart-detail="savings" role="button" tabindex="0">
     <h2 id="title-savings">貯金額</h2>
     <div class="chart-wrap">
       <canvas id="chart-savings"></canvas>

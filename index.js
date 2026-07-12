@@ -128,7 +128,7 @@
 
     renderCompareTable(month, prevMonth, savings, netWorth);
     renderFixedCostTable(month);
-    renderKakeiboTable(month, savings);
+    renderKakeiboTable(month);
   }
 
   function renderPaceInsight(month, prevMonth) {
@@ -274,17 +274,24 @@
   }
 
   function renderCategoryCompareTable(rows) {
+    const rowHtml = ({ label, amount, prevAmount }, isTotal) => {
+      const prevText = prevAmount == null ? "—" : yen(prevAmount);
+      const diff = prevAmount == null ? null : amount - prevAmount;
+      const diffText = diff == null ? "—" : `${diff >= 0 ? "+" : ""}${yen(diff)}`;
+      // Category spending: an increase is always bad news (red), a decrease is good (green).
+      const diffClass = diff == null || diff === 0 ? "" : diff <= 0 ? "positive" : "negative";
+      const rowClass = isTotal ? ' class="total"' : "";
+      return `<tr${rowClass}><td>${label}</td><td>${yen(amount)}</td><td>${prevText}</td><td class="${diffClass}">${diffText}</td></tr>`;
+    };
+
+    const total = {
+      label: "変動支出",
+      amount: rows.reduce((t, r) => t + r.amount, 0),
+      prevAmount: rows.some((r) => r.prevAmount == null) ? null : rows.reduce((t, r) => t + r.prevAmount, 0),
+    };
+
     const tbody = document.querySelector("#category-compare-table tbody");
-    tbody.innerHTML = rows
-      .map(({ label, amount, prevAmount }) => {
-        const prevText = prevAmount == null ? "—" : yen(prevAmount);
-        const diff = prevAmount == null ? null : amount - prevAmount;
-        const diffText = diff == null ? "—" : `${diff >= 0 ? "+" : ""}${yen(diff)}`;
-        // Category spending: an increase is always bad news (red), a decrease is good (green).
-        const diffClass = diff == null || diff === 0 ? "" : diff <= 0 ? "positive" : "negative";
-        return `<tr><td>${label}</td><td>${yen(amount)}</td><td>${prevText}</td><td class="${diffClass}">${diffText}</td></tr>`;
-      })
-      .join("");
+    tbody.innerHTML = rows.map((r) => rowHtml(r, false)).join("") + rowHtml(total, true);
   }
 
   function withAlpha(hex, alpha) {
@@ -342,27 +349,8 @@
     });
   }
 
-  function renderCompareTable(month, prevMonth, savings, netWorth) {
-    const prevSavings = prevMonth ? Aggregate.monthlySavings(dataset, prevMonth) : null;
-    const prevNetWorth = prevMonth ? Aggregate.netWorthAsOf(dataset, prevMonth) : null;
-    const expenseSummary = Aggregate.expenseSummary(dataset, month);
-    const prevExpenseSummary = prevMonth ? Aggregate.expenseSummary(dataset, prevMonth) : null;
-
-    // increaseIsGood: whether a bigger number than last month is good news (green) or bad (red).
-    const rows = [
-      ["収入", savings.incomeTotal, prevSavings && prevSavings.incomeTotal, true],
-      ["支出", savings.totalOutflow, prevSavings && prevSavings.totalOutflow, false],
-      ["固定費", expenseSummary.fixedCost, prevExpenseSummary && prevExpenseSummary.fixedCost, false],
-      ["負債返済額", expenseSummary.debtPayment, prevExpenseSummary && prevExpenseSummary.debtPayment, false],
-      ["変動支出", expenseSummary.variableExpense, prevExpenseSummary && prevExpenseSummary.variableExpense, false],
-      ["貯金額", savings.savings, prevSavings && prevSavings.savings, true],
-      ["純資産額", netWorth.netWorth, prevNetWorth && prevNetWorth.netWorth, true],
-      ["資産額", netWorth.assetsTotal, prevNetWorth && prevNetWorth.assetsTotal, true],
-      ["負債額", netWorth.liabilitiesTotal, prevNetWorth && prevNetWorth.liabilitiesTotal, false],
-    ];
-
-    const tbody = document.querySelector("#compare-table tbody");
-    tbody.innerHTML = rows
+  function compareRowsHtml(rows) {
+    return rows
       .map(([label, cur, prev, increaseIsGood]) => {
         const prevText = prev == null ? "—" : yen(prev);
         const diff = prev == null ? null : cur - prev;
@@ -374,6 +362,52 @@
       .join("");
   }
 
+  // 先月比較: 収入/支出/貯金額/純資産額 is the headline group (also graphed as a bar
+  // chart); 固定費/負債返済額/変動支出/資産額/負債額 is the remaining group, table-only.
+  function renderCompareTable(month, prevMonth, savings, netWorth) {
+    const prevSavings = prevMonth ? Aggregate.monthlySavings(dataset, prevMonth) : null;
+    const prevNetWorth = prevMonth ? Aggregate.netWorthAsOf(dataset, prevMonth) : null;
+    const expenseSummary = Aggregate.expenseSummary(dataset, month);
+    const prevExpenseSummary = prevMonth ? Aggregate.expenseSummary(dataset, prevMonth) : null;
+
+    // increaseIsGood: whether a bigger number than last month is good news (green) or bad (red).
+    const headlineRows = [
+      ["収入", savings.incomeTotal, prevSavings && prevSavings.incomeTotal, true],
+      ["支出", savings.totalOutflow, prevSavings && prevSavings.totalOutflow, false],
+      ["貯金額", savings.savings, prevSavings && prevSavings.savings, true],
+      ["純資産額", netWorth.netWorth, prevNetWorth && prevNetWorth.netWorth, true],
+    ];
+    const otherRows = [
+      ["固定費", expenseSummary.fixedCost, prevExpenseSummary && prevExpenseSummary.fixedCost, false],
+      ["負債返済額", expenseSummary.debtPayment, prevExpenseSummary && prevExpenseSummary.debtPayment, false],
+      ["変動支出", expenseSummary.variableExpense, prevExpenseSummary && prevExpenseSummary.variableExpense, false],
+      ["資産額", netWorth.assetsTotal, prevNetWorth && prevNetWorth.assetsTotal, true],
+      ["負債額", netWorth.liabilitiesTotal, prevNetWorth && prevNetWorth.liabilitiesTotal, false],
+    ];
+
+    document.querySelector("#headline-compare-table tbody").innerHTML = compareRowsHtml(headlineRows);
+    document.querySelector("#other-compare-table tbody").innerHTML = compareRowsHtml(otherRows);
+
+    destroyChart("headlineCompare");
+    charts.headlineCompare = new Chart(el("chart-headline-compare"), {
+      type: "bar",
+      data: {
+        labels: headlineRows.map(([label]) => label),
+        datasets: [
+          { label: "今月", data: headlineRows.map(([, cur]) => cur), backgroundColor: "#007AFF" },
+          { label: "先月", data: headlineRows.map(([, , prev]) => prev), backgroundColor: withAlpha("#007AFF", 0.35) },
+        ],
+      },
+      options: {
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: true, position: "bottom", labels: { boxWidth: 10, font: { size: 12 } } },
+          tooltip: { callbacks: { label: (ctx) => ` ${ctx.dataset.label}: ${yen(ctx.parsed.y)}` } },
+        },
+      },
+    });
+  }
+
   function renderFixedCostTable(month) {
     const rows = Aggregate.fixedCostItems(dataset.fixedCosts, month);
     const total = DetailModal.sumAmounts(rows);
@@ -381,9 +415,9 @@
     el("fixed-cost-table").innerHTML = DetailModal.renderSection(null, rows, total);
   }
 
-  function renderKakeiboTable(month, savings) {
+  function renderKakeiboTable(month) {
     const items = Aggregate.kakeiboItemsByDay(dataset.kakeibo, month);
-    el("title-kakeibo-detail").textContent = `${month}の変動支出：${yen(savings.expenseTotal)}`;
+    el("title-kakeibo-detail").textContent = `${month} 変動支出 明細`;
 
     const tbody = document.querySelector("#kakeibo-detail-table tbody");
     if (!items.length) {
