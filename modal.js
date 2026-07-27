@@ -83,7 +83,9 @@ const DetailModal = (() => {
         return `<tr><td>${shortMonth}</td><td>${valueText}</td><td class="${diffClass}">${diffText}</td></tr>`;
       })
       .join("");
-    return `<table class="compare"><thead><tr><th>月</th><th>金額</th><th>前月比</th></tr></thead><tbody>${body}</tbody></table>`;
+    const total = rows.reduce((t, r) => t + (r.value || 0), 0);
+    const totalRow = `<tr class="total"><td>合計</td><td>${yen(total)}</td><td></td></tr>`;
+    return `<table class="compare"><thead><tr><th>月</th><th>金額</th><th>前月比</th></tr></thead><tbody>${body}${totalRow}</tbody></table>`;
   }
 
   function open(title, bodyHtml) {
