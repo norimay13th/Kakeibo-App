@@ -27,12 +27,29 @@
 
   <div id="warning-banner"></div>
 
+  <div class="comment-card" id="networth-comment"></div>
+
   <div class="hero-card" data-detail="networth" role="button" tabindex="0">
     <div class="label">純資産額</div>
     <div class="value" id="hero-networth">—</div>
   </div>
 
+  <div class="chart-card" data-chart-detail="networth" role="button" tabindex="0">
+    <h2 id="title-networth">純資産額</h2>
+    <div class="chart-wrap">
+      <canvas id="chart-networth"></canvas>
+    </div>
+  </div>
+
   <div class="stat-grid">
+    <div class="stat-card" data-detail="income" role="button" tabindex="0">
+      <div class="label">総収入</div>
+      <div class="value" id="stat-income">—</div>
+    </div>
+    <div class="stat-card" data-detail="expense" role="button" tabindex="0">
+      <div class="label">総支出</div>
+      <div class="value" id="stat-expense">—</div>
+    </div>
     <div class="stat-card" data-detail="assets" role="button" tabindex="0">
       <div class="label">資産額</div>
       <div class="value" id="stat-assets">—</div>
@@ -43,6 +60,11 @@
     </div>
   </div>
 
+  <div class="hero-card" data-detail="savings" role="button" tabindex="0">
+    <div class="label">総貯金額</div>
+    <div class="value" id="hero-savings">—</div>
+  </div>
+
   <div class="chart-card">
     <h2>保有資産割合</h2>
     <div class="chart-wrap chart-wrap--donut">
@@ -51,12 +73,6 @@
     <ul class="legend-list" id="allocation-legend"></ul>
   </div>
 
-  <div class="chart-card" data-chart-detail="networth" role="button" tabindex="0">
-    <h2 id="title-networth">純資産額</h2>
-    <div class="chart-wrap">
-      <canvas id="chart-networth"></canvas>
-    </div>
-  </div>
   <div class="chart-card" data-chart-detail="assets" role="button" tabindex="0">
     <h2 id="title-assets">資産額</h2>
     <div class="chart-wrap">

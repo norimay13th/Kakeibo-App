@@ -112,6 +112,18 @@ select.picker {
 #warning-banner.active { display: block; }
 #warning-banner.error { background: rgba(255, 59, 48, 0.12); color: var(--negative); }
 
+.comment-card {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+.comment-card:empty { display: none; }
+
 .stat-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

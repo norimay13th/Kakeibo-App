@@ -109,6 +109,37 @@
     el(id).textContent = yen(value);
   }
 
+  function annualSum(series, field) {
+    return series.reduce((t, s) => t + (s[field] || 0), 0);
+  }
+
+  // Encouraging one-liner about the net worth trend so far this year, based only on
+  // months that were actually reconfirmed (not carried forward — see yearlySeries).
+  function renderNetWorthComment(series) {
+    const confirmed = series.filter((s) => s.netWorthAsOfMonth === s.month && s.netWorth != null);
+    const commentEl = el("networth-comment");
+    if (confirmed.length === 0) {
+      commentEl.textContent = "まだ記録がありません。ここから記録を積み上げていきましょう！";
+      return;
+    }
+    if (confirmed.length === 1) {
+      commentEl.textContent = `${shortMonth(confirmed[0].month)}時点で${yen(confirmed[0].netWorth)}を記録しました。ここからのペースアップに期待です！`;
+      return;
+    }
+    const first = confirmed[0];
+    const last = confirmed[confirmed.length - 1];
+    const diff = last.netWorth - first.netWorth;
+    const monthlyAvg = diff / (confirmed.length - 1);
+    const period = `${shortMonth(first.month)}〜${shortMonth(last.month)}`;
+    if (diff > 0) {
+      commentEl.textContent = `${period}で純資産は${yen(diff)}増加。月平均${yen(monthlyAvg)}のペースで着実に積み上がっています。この調子で続けていきましょう！`;
+    } else if (diff < 0) {
+      commentEl.textContent = `${period}で純資産は${yen(Math.abs(diff))}減少していますが、月平均${yen(Math.abs(monthlyAvg))}程度の範囲。立て直しはまだ十分間に合うペースです。`;
+    } else {
+      commentEl.textContent = `${period}で純資産は横ばい。次の一歩に向けて足場を固めている段階ですね。`;
+    }
+  }
+
   function renderAll() {
     const year = Number(yearSelect.value);
     if (!year) return;
@@ -123,8 +154,18 @@
     heroEl.classList.toggle("positive", netWorth.netWorth > 0);
     heroEl.classList.toggle("negative", netWorth.netWorth < 0);
 
+    renderNetWorthComment(series);
+
+    setStat("stat-income", annualSum(series, "income"));
+    setStat("stat-expense", annualSum(series, "expense"));
     setStat("stat-assets", netWorth.assetsTotal);
     setStat("stat-liabilities", netWorth.liabilitiesTotal);
+
+    const savingsTotal = annualSum(series, "savings");
+    const savingsEl = el("hero-savings");
+    savingsEl.textContent = yen(savingsTotal);
+    savingsEl.classList.toggle("positive", savingsTotal > 0);
+    savingsEl.classList.toggle("negative", savingsTotal < 0);
 
     // asOfField-bearing rows already carry their own "as of" resolution (see
     // yearlySeries), so renderAreaChart can read title figures straight off the
